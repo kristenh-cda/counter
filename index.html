@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Counting App</title>
+    
+    <!-- iOS Home Screen App Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Counters">
+    <!-- Icon for the iPad home screen -->
+    <link rel="apple-touch-icon" href="https://placehold.co/180x180/ef4444/ffffff?text=100">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Canvas Confetti -->
@@ -136,7 +144,13 @@
         import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        
+        // ---------------------------------------------------------
+        // PASTE YOUR FIREBASE CONFIG HERE (Replace "null" with your config object):
+        const myFirebaseConfig = null; 
+        // ---------------------------------------------------------
+
+        const firebaseConfig = myFirebaseConfig || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
         let db, auth, userId;
 
         if (firebaseConfig) {
@@ -147,10 +161,10 @@
 
         // --- DATA & CONFIG ---
         const ringColors = [
-            '#ef4444', '#f97316', '#f59e0b', '#eab308', '#facc15', // Reds/Oranges/Yellows
-            '#84cc16', '#22c55e', '#10b981', '#2dd4bf', '#14b8a6', // Greens/Teals (arranged sequentially)
-            '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', // Blues/Purples
-            '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#64748b'  // Pinks/Gray
+            '#fca5a5', '#fdba74', '#fcd34d', '#fde047', '#fef08a', // Reds/Oranges/Yellows
+            '#d9f99d', '#86efac', '#6ee7b7', '#5eead4', '#99f6e4', // Greens/Teals (arranged sequentially)
+            '#67e8f9', '#7dd3fc', '#93c5fd', '#a5b4fc', '#c4b5fd', // Blues/Purples
+            '#d8b4fe', '#f0abfc', '#f9a8d4', '#fda4af', '#cbd5e1'  // Pinks/Gray
         ];
 
         const appThemes = [
@@ -187,24 +201,16 @@
         let openSettingsImmediately = false;
         let sortOption = 'recent'; 
         let sortAscending = false;
+        let syncCode = localStorage.getItem('countingApp_syncCode') || '';
+        let unsubscribeCounters = null;
+
         if (auth) {
             const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
             const authPromise = token ? signInWithCustomToken(auth, token) : signInAnonymously(auth);
             
             authPromise.then((userCredential) => {
                 userId = userCredential.user.uid;
-                const countersRef = collection(db, 'artifacts', appId, 'users', userId, 'counters');
-                
-                onSnapshot(query(countersRef), (snapshot) => {
-                    counters = [];
-                    snapshot.forEach((doc) => {
-                        counters.push({ id: doc.id, ...doc.data() });
-                    });
-                    
-                    renderApp();
-                }, (error) => {
-                    console.error("Firebase sync error:", error);
-                });
+                setupRealtimeSubscription();
             }).catch(console.error);
         } else {
             // Fallback for non-firebase env
@@ -212,11 +218,31 @@
             renderApp();
         }
 
+        function setupRealtimeSubscription() {
+            if (!db || !userId) return;
+            if (unsubscribeCounters) unsubscribeCounters();
+            
+            const activeId = syncCode.trim() || userId;
+            const countersRef = collection(db, 'artifacts', appId, 'users', activeId, 'counters');
+            
+            unsubscribeCounters = onSnapshot(query(countersRef), (snapshot) => {
+                counters = [];
+                snapshot.forEach((doc) => {
+                    counters.push({ id: doc.id, ...doc.data() });
+                });
+                
+                renderApp();
+            }, (error) => {
+                console.error("Firebase sync error:", error);
+            });
+        }
+
         // --- CORE FUNCTIONS ---
         function saveData() {
             if (userId && db) {
+                const activeId = syncCode.trim() || userId;
                 counters.forEach(c => {
-                    const cRef = doc(db, 'artifacts', appId, 'users', userId, 'counters', c.id);
+                    const cRef = doc(db, 'artifacts', appId, 'users', activeId, 'counters', c.id);
                     setDoc(cRef, c);
                 });
             } else {
@@ -241,7 +267,8 @@
         window.createNewCounter = function() {
             const newC = createCounterObject();
             if (userId && db) {
-                const cRef = doc(db, 'artifacts', appId, 'users', userId, 'counters', newC.id);
+                const activeId = syncCode.trim() || userId;
+                const cRef = doc(db, 'artifacts', appId, 'users', activeId, 'counters', newC.id);
                 setDoc(cRef, newC).then(() => {
                     currentView = newC.id;
                     openSettingsImmediately = true;
@@ -400,7 +427,7 @@
                     <div class="flex flex-col items-center gap-3">
                         <div onclick="openCounter('${c.id}')" 
                              class="w-full aspect-square rounded-full shadow-md flex items-center justify-center cursor-pointer transform hover:scale-105 active:scale-95 transition-all relative overflow-hidden"
-                             style="background-color: ${theme.color}; border: 12px solid ${c.color}">
+                             style="background-color: ${c.color}40; border: 12px solid ${c.color}">
                             ${showImage && theme.icon ? `<div class="absolute inset-0 opacity-20 flex items-center justify-center text-6xl pointer-events-none">${theme.icon}</div>` : ''}
                             <span class="text-3xl sm:text-4xl font-black relative z-10" style="color: ${c.color}">${c.count}</span>
                         </div>
@@ -569,7 +596,13 @@
                                     </div>
                                 </div>
                                 
-                                <div class="pt-2 space-y-3">
+                                <div class="pt-4 border-t-2 border-gray-100 mt-4">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Cloud Sync Code</label>
+                                    <p class="text-xs text-gray-400 mb-2 leading-tight">Enter a secret word on all your devices to link them together! (e.g. Apples123)</p>
+                                    <input type="text" id="editSyncCode" value="${syncCode}" placeholder="Secret Code" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                </div>
+                                
+                                <div class="pt-2 space-y-3 mt-4">
                                     <button onclick="deleteCurrentCounter()" class="w-full bg-red-50 text-red-600 rounded-2xl py-3 font-bold active:scale-95 transition-transform">Delete Counter</button>
                                 </div>
                             </div>
@@ -781,6 +814,7 @@
             const newCount = parseInt(document.getElementById('editCount').value) || 0;
             const newGoal = parseInt(document.getElementById('editGoal').value) || 100;
             const newStep = parseInt(document.getElementById('editStep').value) || 1;
+            const newSyncCode = (document.getElementById('editSyncCode').value || '').trim();
 
             c.name = newName;
             c.count = newCount;
@@ -789,6 +823,14 @@
             c.color = tempColor;
             c.themeId = tempBgColor;
             c.showImage = tempShowImage;
+
+            if (newSyncCode !== syncCode) {
+                syncCode = newSyncCode;
+                localStorage.setItem('countingApp_syncCode', syncCode);
+                if (auth && db) {
+                    setupRealtimeSubscription(); // Switch database paths to the new sync code!
+                }
+            }
 
             saveData();
             window.closeSettings();
@@ -801,7 +843,8 @@
             window.closeSettings();
             
             if (userId && db) {
-                deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'counters', idToDelete)).catch(console.error);
+                const activeId = syncCode.trim() || userId;
+                deleteDoc(doc(db, 'artifacts', appId, 'users', activeId, 'counters', idToDelete)).catch(console.error);
             } else {
                 counters = counters.filter(x => x.id !== idToDelete);
                 saveData();
