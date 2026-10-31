@@ -11,7 +11,7 @@
     <!-- Inter Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <!-- Rounded Font for Numbers -->
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
     
     <style>
         body {
@@ -80,14 +80,22 @@
             justify-content: center;
             font-family: 'Nunito', sans-serif;
             font-size: 6.5rem;
-            font-weight: 900;
+            font-weight: 700;
             color: black;
             z-index: 10; /* Keeps text above the liquid */
+            transition: font-size 0.2s ease-in-out;
+        }
+        
+        .liquid-text.shrink {
+            font-size: 4.5rem;
         }
         
         @media (min-width: 640px) {
             .liquid-text {
                 font-size: 10rem;
+            }
+            .liquid-text.shrink {
+                font-size: 7.5rem;
             }
         }
         
@@ -177,8 +185,8 @@
         let isCelebrating = false;
         let isDraining = false;
         let openSettingsImmediately = false;
-
-        // Firebase Initialization
+        let sortOption = 'recent'; 
+        let sortAscending = false;
         if (auth) {
             const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
             const authPromise = token ? signInWithCustomToken(auth, token) : signInAnonymously(auth);
@@ -225,7 +233,8 @@
                 step: 1,
                 color: '#ef4444', // Red default
                 themeId: 'white', // White default
-                showImage: true
+                showImage: true,
+                lastAccessed: Date.now()
             };
         }
 
@@ -342,33 +351,71 @@
             document.body.style.backgroundColor = '#f3f4f6';
             document.body.style.backgroundImage = 'none';
             
+            // Sort the counters based on state
+            let sortedCounters = [...counters].sort((a, b) => {
+                let valA, valB;
+                if (sortOption === 'name') {
+                    valA = (a.name || '').toLowerCase();
+                    valB = (b.name || '').toLowerCase();
+                    if (valA < valB) return sortAscending ? -1 : 1;
+                    if (valA > valB) return sortAscending ? 1 : -1;
+                    return 0;
+                } else if (sortOption === 'count') {
+                    valA = a.count || 0;
+                    valB = b.count || 0;
+                } else {
+                    valA = a.lastAccessed || 0;
+                    valB = b.lastAccessed || 0;
+                }
+                return sortAscending ? valA - valB : valB - valA;
+            });
+
             let html = `
                 <div class="p-6 sm:p-10 max-w-4xl mx-auto pb-24">
-                    <h1 class="text-3xl sm:text-4xl font-black mb-8 text-gray-900 text-center tracking-tight">Counters</h1>
-                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 sm:gap-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+                        <h1 class="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">Counters</h1>
+                        
+                        <div class="flex items-center gap-2">
+                            <select id="sortOption" onchange="changeSort(event)" class="bg-white border border-gray-300 text-gray-700 py-2.5 px-4 rounded-xl font-bold shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 cursor-pointer">
+                                <option value="recent" ${sortOption === 'recent' ? 'selected' : ''}>Recently Used</option>
+                                <option value="count" ${sortOption === 'count' ? 'selected' : ''}>Current Count</option>
+                                <option value="name" ${sortOption === 'name' ? 'selected' : ''}>Alphabetical</option>
+                            </select>
+                            <button onclick="toggleSortDirection()" class="bg-white border border-gray-300 text-gray-700 p-2.5 rounded-xl shadow-sm hover:bg-gray-50 active:scale-95 transition-transform" title="Toggle Ascending/Descending">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="${sortAscending ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'}"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-y-8 gap-x-4 sm:gap-x-6">
             `;
             
-            counters.forEach(c => {
+            sortedCounters.forEach(c => {
                 const theme = getThemeObj(c.themeId || 'white');
                 const showImage = c.showImage !== false;
-                const darkBg = isDark(theme.color);
-                const textColor = darkBg ? 'text-white' : 'text-gray-900';
                 
                 html += `
-                    <div onclick="openCounter('${c.id}')" 
-                         class="aspect-square rounded-3xl shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105 active:scale-95 transition-all relative overflow-hidden"
-                         style="background-color: ${theme.color}; border: 4px solid ${c.color}">
-                        ${showImage && theme.icon ? `<div class="absolute inset-0 opacity-20 flex items-center justify-center text-6xl pointer-events-none">${theme.icon}</div>` : ''}
-                        <span class="text-3xl sm:text-4xl font-black relative z-10 mb-1" style="color: ${c.color}">${c.count}</span>
-                        <span class="text-sm font-bold relative z-10 px-2 text-center truncate w-full ${textColor}">${c.name || 'Counter'}</span>
+                    <div class="flex flex-col items-center gap-3">
+                        <div onclick="openCounter('${c.id}')" 
+                             class="w-full aspect-square rounded-full shadow-md flex items-center justify-center cursor-pointer transform hover:scale-105 active:scale-95 transition-all relative overflow-hidden"
+                             style="background-color: ${theme.color}; border: 12px solid ${c.color}">
+                            ${showImage && theme.icon ? `<div class="absolute inset-0 opacity-20 flex items-center justify-center text-6xl pointer-events-none">${theme.icon}</div>` : ''}
+                            <span class="text-3xl sm:text-4xl font-black relative z-10" style="color: ${c.color}">${c.count}</span>
+                        </div>
+                        <span class="text-sm font-bold text-gray-900 text-center truncate w-full px-2">${c.name || 'Counter'}</span>
                     </div>
                 `;
             });
 
             html += `
-                    <div onclick="createNewCounter()" 
-                         class="aspect-square rounded-3xl border-4 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-white active:scale-95 transition-all bg-gray-50/50">
-                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                    <div class="flex flex-col items-center gap-3">
+                        <div onclick="createNewCounter()" 
+                             class="w-full aspect-square rounded-full border-[12px] border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-white active:scale-95 transition-all bg-gray-50/50">
+                            <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                        </div>
+                        <span class="text-sm font-bold text-gray-500 text-center truncate w-full px-2">Add New</span>
                     </div>
                 </div>
             </div>
@@ -377,9 +424,30 @@
             document.getElementById('app').innerHTML = html;
         }
 
+        window.changeSort = function(e) {
+            sortOption = e.target.value;
+            // Smart defaults when switching options
+            if (sortOption === 'recent') sortAscending = false; 
+            else if (sortOption === 'count') sortAscending = false; 
+            else sortAscending = true; 
+            renderApp();
+        }
+
+        window.toggleSortDirection = function() {
+            sortAscending = !sortAscending;
+            renderApp();
+        }
+
         window.openCounter = function(id) {
             currentView = id;
             openSettingsImmediately = false;
+            
+            const c = counters.find(x => x.id === id);
+            if (c) {
+                c.lastAccessed = Date.now();
+                saveData();
+            }
+            
             renderApp();
         }
 
@@ -437,7 +505,7 @@
                     <div class="flex flex-col items-center z-10 w-full relative">
                         <div id="ring-container" class="liquid-container mb-6" style="--ring-color: ${c.color}">
                             <div class="liquid-fill" style="height: ${progressPct}%; transition: height ${liquidTransition} cubic-bezier(0.4, 0, 0.2, 1);"></div>
-                            <div class="liquid-text">${c.count}</div>
+                            <div class="liquid-text ${c.count >= 1000 ? 'shrink' : ''}">${c.count}</div>
                         </div>
                         
                         <button onclick="handleMinus(event)" class="${btnClass} p-3 rounded-xl backdrop-blur-md shadow-md active:scale-95 transition-transform flex items-center justify-center absolute -bottom-24 sm:-bottom-32">
@@ -447,7 +515,7 @@
 
                 </div>
 
-                <div id="settingsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex-col items-center justify-end sm:justify-center p-4" onclick="closeSettings(event)">
+                <div id="settingsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex-col items-center justify-end sm:justify-center p-4">
                     <div class="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl transform transition-transform" onclick="event.stopPropagation()">
                         <div class="flex justify-between items-center mb-6">
                             <h2 class="text-2xl font-black text-gray-900">Settings</h2>
