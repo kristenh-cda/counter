@@ -9,7 +9,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Counters">
-    <link rel="apple-touch-icon" href="https://placehold.co/180x180/ef4444/ffffff?text=100">
+    <!-- App Icon: Black background, blue counter set to 8 (5/6ths full) -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='black'/><circle cx='50' cy='50' r='35' fill='none' stroke='%2338bdf8' stroke-width='10'/><path d='M 15 50 A 35 35 0 1 0 85 50 L 85 85 L 15 85 Z' fill='%2338bdf8' opacity='0.85'/><text x='50' y='63' font-family='sans-serif' font-weight='900' font-size='38' fill='white' text-anchor='middle'>8</text></svg>">
+    <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='black'/><circle cx='50' cy='50' r='35' fill='none' stroke='%2338bdf8' stroke-width='10'/><path d='M 15 50 A 35 35 0 1 0 85 50 L 85 85 L 15 85 Z' fill='%2338bdf8' opacity='0.85'/><text x='50' y='63' font-family='sans-serif' font-weight='900' font-size='38' fill='white' text-anchor='middle'>8</text></svg>">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,6 +25,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            /* Disable text selection and highlighting for a native app feel */
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
@@ -30,6 +33,7 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        /* The Custom Liquid Ring */
         .liquid-container {
             width: 85vw;
             max-width: 360px;
@@ -37,12 +41,29 @@
             max-height: 360px;
             border-radius: 50%;
             border: 48px solid var(--ring-color);
-            background-color: white;
+            background-color: white; /* Ensures text is always readable */
             position: relative;
             overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), inset 0 10px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4), inset 0 10px 25px rgba(0,0,0,0.15);
         }
         
+        /* Gentle White Glow Overlay */
+        .liquid-container::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            box-shadow: inset 0 0 60px rgba(255, 255, 255, 0.9);
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* Dashboard Circular Shortcuts */
+        .dash-circle {
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15), inset 0 0 15px rgba(255,255,255,0.8);
+        }
+        
+        /* Gentle White Glow Overlay */
         .liquid-container::after {
             content: '';
             position: absolute;
@@ -68,9 +89,10 @@
             left: 0;
             width: 100%;
             background-color: var(--ring-color);
-            opacity: 0.85; 
+            opacity: 0.85; /* Slight transparency so it looks like liquid */
             transition: height 0.15s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1;
+            /* Soft liquid shading and glossy top edge (meniscus) */
             box-shadow: inset 0 15px 25px rgba(255, 255, 255, 0.4);
             border-top: 3px solid rgba(255, 255, 255, 0.5);
         }
@@ -85,7 +107,7 @@
             font-size: 6.5rem;
             font-weight: 700;
             color: black;
-            z-index: 10; 
+            z-index: 10; /* Keeps text above the liquid */
             transition: font-size 0.2s ease-in-out;
         }
         
@@ -114,7 +136,7 @@
         
         @keyframes bg-move {
             0% { background-position: 0px 0px; }
-            100% { background-position: 240px 240px; } 
+            100% { background-position: 240px 240px; } /* Exactly two 120px cycles to perfectly loop back to the start */
         }
         
         @keyframes bg-flash {
@@ -123,20 +145,24 @@
         }
         
         .celebration-active {
+            /* Runs for exactly 3 seconds and stops smoothly on the exact frame it started on */
             animation: bg-move 3s linear forwards, bg-flash 0.6s ease-in-out 5 forwards !important;
         }
     </style>
 </head>
 <body class="transition-colors duration-300 min-h-screen w-full">
 
+    <!-- Main App Container -->
     <div id="app" class="w-full h-full min-h-screen"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Your Firebase Configuration
-        const firebaseConfig = {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        
+        // Firebase Config
+        const myFirebaseConfig = {
             apiKey: "AIzaSyAJvGT0O1DWBm_XjLtOuZC3TWiv6WKKVG4",
             authDomain: "speechcounter-cda.firebaseapp.com",
             projectId: "speechcounter-cda",
@@ -146,20 +172,25 @@
             measurementId: "G-4P6Z6VXVJF"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        const firebaseConfig = myFirebaseConfig || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
+        let db;
 
-        // --- DATA & CONFIG ---
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+        }
+
+        // Saturated Pastel Ring Colors
         const ringColors = [
-            '#fca5a5', '#fdba74', '#fcd34d', '#fde047', '#fef08a', 
-            '#d9f99d', '#86efac', '#6ee7b7', '#5eead4', '#99f6e4', 
-            '#67e8f9', '#7dd3fc', '#93c5fd', '#a5b4fc', '#c4b5fd', 
-            '#d8b4fe', '#f0abfc', '#f9a8d4', '#fda4af', '#cbd5e1'  
+            '#E64836', '#FDA649', '#FCCE36', '#FDE55E', '#FF4A3D', // Reds/Oranges/Yellows
+            '#CBF778', '#4FDD45', '#4FA740', '#40DD9F', '#37E6C9', // Greens/Teals
+            '#4FE4F8', '#60CAFB', '#61A8FA', '#889BFB', '#B29CFC', // Blues/Purples
+            '#CC9BFD', '#F78DC7', '#FB8896', '#B3C2D1', '#A9A9A9'  // Pinks/Grey
         ];
 
         const appThemes = [
             { id: 'white', name: 'White', color: '#ffffff', icon: '' },
-            { id: 'pink_daisy', name: 'Pink Daisy', color: '#fce7f3', icon: '🌸' },
+            { id: 'pink_daisy', name: 'Pink Daisy', color: '#fce7f3', icon: '🌼' },
             { id: 'yellow_sun', name: 'Yellow Sun', color: '#fef08a', icon: '☀️' },
             { id: 'green_tree', name: 'Green Tree', color: '#dcfce7', icon: '🌳' },
             { id: 'turquoise_duck', name: 'Turquoise Duck', color: '#ccfbf1', icon: '🦆' },
@@ -177,7 +208,16 @@
             { id: 'red_santa', name: 'Red Santa', color: '#fecaca', icon: '🎅' }
         ];
 
-        let counters = JSON.parse(localStorage.getItem('countingApp_data')) || [];
+        // Custom Pixabay Audio Objects
+        const popAudio = new Audio("https://cdn.pixabay.com/download/audio/2026/03/15/audio_82c2b79a54.mp3?filename=pop-423717.mp3");
+        const fanfareAudio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_c89c836965.mp3?filename=fanfare-46385.mp3");
+
+        // Preload sounds
+        popAudio.load();
+        fanfareAudio.load();
+
+        // State variables
+        let counters = [];
         let currentView = 'dashboard'; 
         let tempColor = '';
         let tempBgColor = '';
@@ -190,33 +230,28 @@
         let openSettingsImmediately = false;
         let sortOption = 'recent'; 
         let sortAscending = false;
-        
         let syncCode = localStorage.getItem('countingApp_syncCode') || '';
         let unsubscribeCounters = null;
 
-        // Start sync immediately if a code is saved locally
-        if (syncCode.trim()) {
+        counters = JSON.parse(localStorage.getItem('countingApp_data')) || [];
+        
+        if (db) {
             setupRealtimeSubscription();
         }
 
-        // --- CORE FUNCTIONS ---
         function setupRealtimeSubscription() {
             if (!db) return;
-            const activeId = syncCode.trim();
-            if (!activeId) return;
-
             if (unsubscribeCounters) unsubscribeCounters();
             
-            const docRef = doc(db, 'shared_counters', activeId);
-            unsubscribeCounters = onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    if (data.counters) {
-                        counters = data.counters;
-                        localStorage.setItem('countingApp_data', JSON.stringify(counters));
-                        renderApp();
-                    }
-                }
+            const activeId = syncCode.trim() || 'default_local_user';
+            const countersRef = collection(db, 'artifacts', appId, 'users', activeId, 'counters');
+            
+            unsubscribeCounters = onSnapshot(query(countersRef), (snapshot) => {
+                counters = [];
+                snapshot.forEach((doc) => {
+                    counters.push({ id: doc.id, ...doc.data() });
+                });
+                renderApp();
             }, (error) => {
                 console.error("Firebase sync error:", error);
             });
@@ -224,12 +259,12 @@
 
         function saveData() {
             localStorage.setItem('countingApp_data', JSON.stringify(counters));
-            
-            const activeId = syncCode.trim();
-            if (db && activeId) {
-                const docRef = doc(db, 'shared_counters', activeId);
-                setDoc(docRef, { counters: counters, lastUpdated: Date.now() }, { merge: true })
-                    .catch(e => console.error("Save Error (Check Firestore Rules):", e));
+            if (db) {
+                const activeId = syncCode.trim() || 'default_local_user';
+                counters.forEach(c => {
+                    const cRef = doc(db, 'artifacts', appId, 'users', activeId, 'counters', c.id);
+                    setDoc(cRef, c).catch(e => console.error("Save error:", e));
+                });
             }
         }
 
@@ -240,8 +275,8 @@
                 count: 0,
                 goal: 100,
                 step: 1,
-                color: '#fca5a5', 
-                themeId: 'white', 
+                color: '#ff7675',
+                themeId: 'white',
                 showImage: true,
                 lastAccessed: Date.now()
             };
@@ -251,62 +286,57 @@
             const newC = createCounterObject();
             counters.push(newC);
             saveData();
+            
             currentView = newC.id;
             openSettingsImmediately = true;
             renderApp();
         }
 
-        // --- AUDIO SYSTEM ---
+        // Audio Triggers with robust Web Audio Synth Fallback
         function playPopSound(isDecrease = false) {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-
-            osc.type = 'sine';
-            if (isDecrease) {
-                osc.frequency.setValueAtTime(120, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.15);
-            } else {
-                osc.frequency.setValueAtTime(250, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.1);
-            }
-
-            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.15);
-        }
-
-        function playCelebrateSound() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            
-            const notes = [261.63, 329.63, 392.00, 523.25]; 
-            notes.forEach((freq, i) => {
+            popAudio.currentTime = 0;
+            popAudio.play().catch(() => {
+                // Fallback synth pop sound
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.value = freq;
-                
-                const startTime = audioCtx.currentTime + (i * 0.1);
-                gain.gain.setValueAtTime(0, startTime);
-                gain.gain.linearRampToValueAtTime(0.3, startTime + 0.08);
-                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 2.8);
-                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(isDecrease ? 120 : 250, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(isDecrease ? 30 : 60, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
-                osc.start(startTime);
-                osc.stop(startTime + 3.0);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
             });
         }
 
-        // --- RENDERING ---
+        function playCelebrateSound() {
+            fanfareAudio.currentTime = 0;
+            fanfareAudio.play().catch(() => {
+                // Fallback synth fanfare chord
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const notes = [261.63, 329.63, 392.00, 523.25]; 
+                notes.forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    const startTime = audioCtx.currentTime + (i * 0.1);
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(0.3, startTime + 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 2.8);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + 3.0);
+                });
+            });
+        }
+
         function isDark(hex) {
             if (hex === '#000000') return true;
             if (!hex || !hex.startsWith('#')) return false;
@@ -345,7 +375,6 @@
             document.body.style.backgroundColor = '#ffffff';
             document.body.style.backgroundImage = 'none';
             
-            // Sort the counters based on state
             let sortedCounters = [...counters].sort((a, b) => {
                 let valA, valB;
                 if (sortOption === 'name') {
@@ -366,15 +395,14 @@
 
             let html = `
                 <div class="p-6 sm:p-10 max-w-4xl mx-auto pb-24">
-                    <div class="flex flex-col sm:flex-row justify-end items-center mb-8 gap-4">
-                        
+                    <div class="flex justify-end items-center mb-8 gap-4">
                         <div class="flex items-center gap-2">
-                            <select id="sortOption" onchange="changeSort(event)" class="bg-white border border-gray-300 text-gray-700 py-2.5 px-4 rounded-xl font-bold shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 cursor-pointer">
+                            <select id="sortOption" onchange="changeSort(event)" class="bg-gray-50 border border-gray-200 text-gray-700 py-2.5 px-4 rounded-xl font-bold shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 cursor-pointer">
                                 <option value="recent" ${sortOption === 'recent' ? 'selected' : ''}>Recently Used</option>
                                 <option value="count" ${sortOption === 'count' ? 'selected' : ''}>Current Count</option>
                                 <option value="name" ${sortOption === 'name' ? 'selected' : ''}>Alphabetical</option>
                             </select>
-                            <button onclick="toggleSortDirection()" class="bg-white border border-gray-300 text-gray-700 p-2.5 rounded-xl shadow-sm hover:bg-gray-50 active:scale-95 transition-transform" title="Toggle Ascending/Descending">
+                            <button onclick="toggleSortDirection()" class="bg-gray-50 border border-gray-200 text-gray-700 p-2.5 rounded-xl shadow-sm hover:bg-gray-100 active:scale-95 transition-transform" title="Toggle Ascending/Descending">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="${sortAscending ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'}"></path>
                                 </svg>
@@ -382,7 +410,7 @@
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-y-8 gap-x-4 sm:gap-x-6">
+                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-y-10 gap-x-4 sm:gap-x-6">
             `;
             
             sortedCounters.forEach(c => {
@@ -392,12 +420,12 @@
                 html += `
                     <div class="flex flex-col items-center gap-3">
                         <div onclick="openCounter('${c.id}')" 
-                             class="w-full aspect-square rounded-full flex items-center justify-center cursor-pointer transform hover:scale-105 active:scale-95 transition-all relative overflow-hidden"
-                             style="background-color: ${c.color}40; border: 12px solid ${c.color}; box-shadow: 0 12px 25px -5px rgba(0,0,0,0.2), inset 0 0 30px rgba(255,255,255,0.9);">
+                             class="w-full aspect-square rounded-full dash-circle flex items-center justify-center cursor-pointer transform hover:scale-105 active:scale-95 transition-all relative overflow-hidden"
+                             style="background-color: ${c.color}40; border: 12px solid ${c.color}">
                             ${showImage && theme.icon ? `<div class="absolute inset-0 opacity-20 flex items-center justify-center text-6xl pointer-events-none">${theme.icon}</div>` : ''}
-                            <span class="text-3xl sm:text-4xl font-black relative z-10" style="color: ${c.color}; text-shadow: 0 2px 4px rgba(255,255,255,0.8);">${c.count}</span>
+                            <span class="text-3xl sm:text-4xl font-black relative z-10" style="color: ${c.color}">${c.count}</span>
                         </div>
-                        <span class="text-sm font-bold text-gray-900 text-center truncate w-full px-2">${c.name || 'Counter'}</span>
+                        <span class="text-sm font-bold text-gray-800 text-center truncate w-full px-2">${c.name || 'Counter'}</span>
                     </div>
                 `;
             });
@@ -405,11 +433,10 @@
             html += `
                     <div class="flex flex-col items-center gap-3">
                         <div onclick="createNewCounter()" 
-                             class="w-full aspect-square rounded-full border-[3px] border-gray-100 flex items-center justify-center cursor-pointer hover:border-gray-200 hover:bg-gray-50 active:scale-95 transition-all bg-white relative"
-                             style="box-shadow: 0 12px 25px -5px rgba(0,0,0,0.08), inset 0 0 20px rgba(0,0,0,0.02);">
-                            <span class="text-5xl sm:text-6xl font-light text-gray-400 mb-1 sm:mb-2">+</span>
+                             class="w-full aspect-square rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-100 active:scale-95 transition-all bg-white shadow-lg text-gray-400 hover:text-gray-600 border-2 border-gray-100">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
                         </div>
-                        <span class="text-sm font-bold text-gray-500 text-center truncate w-full px-2">Add New</span>
+                        <span class="text-sm font-bold text-gray-400 text-center truncate w-full px-2">Add New</span>
                     </div>
                 </div>
             </div>
@@ -440,6 +467,7 @@
                 c.lastAccessed = Date.now();
                 saveData();
             }
+            
             renderApp();
         }
 
@@ -456,7 +484,6 @@
             const darkBg = isDark(theme.color);
             const btnClass = darkBg ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-black/10 text-gray-900 hover:bg-black/20';
 
-            // Calculate fill percentage based on the active goal chunk
             let baseGoal = c.goal - 100;
             let currentSpan = c.count - baseGoal;
             if (currentSpan < 0) currentSpan = 0;
@@ -482,7 +509,7 @@
                         <button onclick="goBack(event)" class="${btnClass} p-3 rounded-full backdrop-blur-md transition-colors shadow-sm">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
                         </button>
-                        <span class="text-4xl sm:text-5xl tracking-wide px-3 py-1" style="font-family: 'Nunito', sans-serif; font-weight: 800; color: ${darkBg ? 'white' : '#1f2937'}; text-shadow: 0 6px 12px rgba(0,0,0,0.15);">${c.name || 'Counter'}</span>
+                        <span class="font-nunito font-bold text-4xl sm:text-5xl tracking-tight px-3 py-1" style="color: ${darkBg ? 'white' : '#111827'}; text-shadow: 0 4px 12px rgba(0,0,0,0.15);">${c.name || 'Counter'}</span>
                     </div>
                     
                     <div class="absolute top-6 right-6 z-20 flex items-center gap-3">
@@ -790,7 +817,9 @@
             if (newSyncCode !== syncCode) {
                 syncCode = newSyncCode;
                 localStorage.setItem('countingApp_syncCode', syncCode);
-                setupRealtimeSubscription(); // Switch database paths to the new sync code!
+                if (db) {
+                    setupRealtimeSubscription();
+                }
             }
 
             saveData();
@@ -806,9 +835,15 @@
             counters = counters.filter(x => x.id !== idToDelete);
             saveData();
             renderApp();
+            
+            if (db) {
+                const activeId = syncCode.trim() || 'default_local_user';
+                deleteDoc(doc(db, 'artifacts', appId, 'users', activeId, 'counters', idToDelete)).catch(console.error);
+            }
         }
 
         window.onload = renderApp;
+
     </script>
 </body>
 </html>
