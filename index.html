@@ -5,223 +5,137 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Counting App</title>
     
-    <!-- iOS PWA Configurations -->
+    <!-- iOS Home Screen App Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://via.placeholder.com/192/BAE1FF/ffffff?text=Count">
-    
+    <meta name="apple-mobile-web-app-title" content="Counters">
+    <link rel="apple-touch-icon" href="https://placehold.co/180x180/ef4444/ffffff?text=100">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    
-    <!-- Nunito Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700&display=swap" rel="stylesheet">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Rounded Font for Numbers -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
     
     <style>
-        body { 
-            font-family: 'Nunito', sans-serif; 
-            touch-action: manipulation; /* Prevent double-tap zoom */
-            overflow: hidden;
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* Thick Border & Gentle Glow Bubble */
-        .counter-ring {
-            border-width: 48px;
-            border-style: solid;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+        .liquid-container {
+            width: 85vw;
+            max-width: 360px;
+            height: 85vw;
+            max-height: 360px;
+            border-radius: 50%;
+            border: 48px solid var(--ring-color);
+            background-color: white;
             position: relative;
             overflow: hidden;
-            background: white;
-            transition: border-color 0.3s;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), inset 0 10px 20px rgba(0,0,0,0.1);
         }
-        .counter-ring::after {
+        
+        .liquid-container::after {
             content: '';
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            box-shadow: inset 0 0 25px rgba(255, 255, 255, 0.9);
+            box-shadow: inset 0 0 60px rgba(255, 255, 255, 0.9);
+            z-index: 5;
             pointer-events: none;
-            z-index: 10;
+        }
+        
+        @media (min-width: 640px) {
+            .liquid-container {
+                width: 500px;
+                max-width: 75vh;
+                height: 500px;
+                max-height: 75vh;
+            }
         }
 
-        /* Liquid Fill Animation */
         .liquid-fill {
             position: absolute;
             bottom: 0;
             left: 0;
-            right: 0;
-            background-size: cover;
-            background-position: center bottom;
-            transition: height 0.5s ease-out;
+            width: 100%;
+            background-color: var(--ring-color);
+            opacity: 0.85; 
+            transition: height 0.15s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1;
+            box-shadow: inset 0 15px 25px rgba(255, 255, 255, 0.4);
+            border-top: 3px solid rgba(255, 255, 255, 0.5);
         }
-        .liquid-fill.draining {
-            height: 0% !important;
-            transition: height 3s ease-in-out;
+
+        .liquid-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Nunito', sans-serif;
+            font-size: 6.5rem;
+            font-weight: 700;
+            color: black;
+            z-index: 10; 
+            transition: font-size 0.2s ease-in-out;
         }
         
-        /* Smooth Background Celebration (2 cycles over 3s) */
-        @keyframes slideBackground {
-            0% { background-position: center 0px; }
-            100% { background-position: center 240px; }
-        }
-        .celebrating .liquid-fill {
-            animation: slideBackground 3s linear forwards;
-        }
-
-        /* Text Layering */
-        .liquid-text {
-            position: relative;
-            z-index: 20;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-            transition: font-size 0.3s ease;
-        }
         .liquid-text.shrink {
-            font-size: 0.75em;
+            font-size: 4.5rem;
         }
-
-        /* Dashboard Thick Circles */
-        .dash-circle {
-            border-width: 12px;
-            border-style: solid;
+        
+        @media (min-width: 640px) {
+            .liquid-text {
+                font-size: 10rem;
+            }
+            .liquid-text.shrink {
+                font-size: 7.5rem;
+            }
+        }
+        
+        .pulse-anim {
+            animation: pulse-ring 0.15s ease-out;
+        }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.97); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes bg-move {
+            0% { background-position: 0px 0px; }
+            100% { background-position: 240px 240px; } 
+        }
+        
+        @keyframes bg-flash {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.15) contrast(1.1); }
+        }
+        
+        .celebration-active {
+            animation: bg-move 3s linear forwards, bg-flash 0.6s ease-in-out 5 forwards !important;
         }
     </style>
 </head>
-<body class="bg-gray-50 h-screen w-screen select-none">
+<body class="transition-colors duration-300 min-h-screen w-full">
 
-    <!-- MAIN DASHBOARD -->
-    <div id="dashboardView" class="h-full w-full flex flex-col p-6 overflow-y-auto">
-        <div class="flex justify-between items-center mb-8 pt-8">
-            <h1 class="text-3xl font-bold text-gray-800">My Counters</h1>
-            <div class="flex gap-2 items-center">
-                <label class="text-sm text-gray-500 font-bold">Sort:</label>
-                <select id="sortSelect" class="p-2 bg-white border-2 border-gray-200 rounded-xl text-gray-700 font-bold focus:outline-none" onchange="renderDashboard()">
-                    <option value="recent">Recently Used</option>
-                    <option value="num-desc">Count (High-Low)</option>
-                    <option value="num-asc">Count (Low-High)</option>
-                    <option value="alpha-asc">A-Z</option>
-                    <option value="alpha-desc">Z-A</option>
-                </select>
-            </div>
-        </div>
-        
-        <div id="counterList" class="flex flex-wrap gap-8 justify-center items-start">
-            <!-- Dynamically populated circles -->
-        </div>
+    <div id="app" class="w-full h-full min-h-screen"></div>
 
-        <button onclick="createNewCounter()" class="mt-12 mx-auto bg-gray-200 hover:bg-gray-300 text-gray-600 font-bold rounded-full w-20 h-20 flex items-center justify-center text-4xl shadow-md transition-transform active:scale-95">+</button>
-    </div>
-
-    <!-- ACTIVE COUNTER VIEW -->
-    <div id="counterView" class="hidden h-full w-full flex-col relative bg-gray-50">
-        <!-- Top Bar -->
-        <div class="absolute top-0 left-0 right-0 p-6 flex justify-between z-50">
-            <button onclick="goToDashboard()" class="w-12 h-12 bg-white rounded-full shadow-md flex items-center justify-center text-xl font-bold text-gray-600 active:scale-90">←</button>
-            <h2 id="activeTitle" class="text-2xl font-bold text-gray-700 self-center"></h2>
-            <button onclick="openSettings()" class="w-12 h-12 bg-white rounded-full shadow-md flex items-center justify-center text-xl font-bold text-gray-600 active:scale-90">⚙️</button>
-        </div>
-
-        <!-- Giant Counter Bubble -->
-        <div class="flex-1 flex items-center justify-center w-full mt-10">
-            <div id="touchArea" class="w-80 h-80 sm:w-96 sm:h-96 md:w-[500px] md:h-[500px] rounded-full counter-ring flex items-center justify-center cursor-pointer relative" onclick="increaseCount()">
-                <div id="liquidLayer" class="liquid-fill"></div>
-                <span id="countDisplay" class="liquid-text text-7xl sm:text-8xl md:text-9xl font-bold text-white tracking-wider">0</span>
-            </div>
-        </div>
-
-        <!-- Shrunk Minus Button -->
-        <div class="absolute bottom-8 left-0 right-0 flex justify-center z-40">
-            <button onclick="decreaseCount()" class="w-14 h-14 bg-white border-4 border-gray-200 rounded-full shadow-lg flex items-center justify-center text-2xl font-bold text-gray-400 active:scale-90 transition-transform">-</button>
-        </div>
-    </div>
-
-    <!-- SETTINGS MODAL (No background click exit) -->
-    <div id="settingsModal" class="hidden fixed inset-0 bg-black/50 z-[100] flex items-end sm:items-center justify-center">
-        <div class="bg-white w-full sm:w-96 max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl p-6 relative">
-            <button onclick="closeSettings()" class="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full text-gray-500 font-bold">X</button>
-            
-            <h3 class="text-2xl font-bold mb-6 text-gray-800">Settings</h3>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-gray-600 font-bold mb-1">Name</label>
-                    <input type="text" id="editName" class="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold">
-                </div>
-                
-                <div>
-                    <label class="block text-gray-600 font-bold mb-1">Ring Color (Pastels)</label>
-                    <div class="flex flex-wrap gap-2" id="colorPicker"></div>
-                </div>
-
-                <div class="pt-6 border-t-2 border-gray-100">
-                    <p class="text-xs text-gray-400 uppercase font-bold tracking-widest mb-4">Adult Controls</p>
-                    
-                    <div class="flex gap-4 mb-4">
-                        <div class="flex-1">
-                            <label class="block text-gray-600 font-bold mb-1">Step</label>
-                            <input type="number" id="editStep" class="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold">
-                        </div>
-                        <div class="flex-1">
-                            <label class="block text-gray-600 font-bold mb-1">Current Goal</label>
-                            <input type="number" id="editGoal" class="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold">
-                        </div>
-                    </div>
-
-                    <div class="mb-6">
-                        <label class="block text-gray-600 font-bold mb-1">Cloud Sync Code</label>
-                        <input type="text" id="editSync" placeholder="e.g. Apples123" class="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold">
-                        <p class="text-xs text-gray-400 mt-1">Type the same code on all devices to link them.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex flex-col gap-3 mt-8">
-                <button onclick="saveSettings()" class="w-full py-4 bg-green-400 hover:bg-green-500 text-white font-bold rounded-xl text-lg shadow-sm">Save Changes</button>
-                <button onclick="deleteCounter()" class="w-full py-4 bg-red-100 hover:bg-red-200 text-red-500 font-bold rounded-xl text-lg">Delete Counter</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- AUDIO API CONTEXT -->
-    <script>
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playDeepPop() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
-        }
-        function playChime() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-            osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.5);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 1.5);
-        }
-    </script>
-
-    <!-- FIREBASE REALTIME SYNC MODULE -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Your Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAJvGT0O1DWBm_XjLtOuZC3TWiv6WKKVG4",
             authDomain: "speechcounter-cda.firebaseapp.com",
@@ -235,323 +149,666 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let activeListener = null;
-
-        window.pushToCloud = async (syncCode, appData) => {
-            if (!syncCode) return;
-            try {
-                const docRef = doc(db, "shared_counters", syncCode);
-                await setDoc(docRef, { counters: appData, lastUpdated: Date.now() }, { merge: true });
-            } catch (error) {
-                console.error("Cloud save failed.", error);
-            }
-        };
-
-        window.startListeningToCloud = (syncCode, onDataReceived) => {
-            if (!syncCode) return;
-            if (activeListener) activeListener(); 
-            
-            const docRef = doc(db, "shared_counters", syncCode);
-            activeListener = onSnapshot(docRef, (snapshot) => {
-                if (snapshot.exists()) {
-                    onDataReceived(snapshot.data().counters);
-                }
-            });
-        };
-    </script>
-
-    <!-- MAIN APP LOGIC -->
-    <script>
-        // Data & State
-        let counters = JSON.parse(localStorage.getItem('counters')) || {};
-        let activeCounterId = null;
-        let mySyncCode = localStorage.getItem('syncCode') || "";
-        let isCelebrating = false;
-
-        const pastelColors = [
-            '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', 
-            '#E2CBF7', '#F3B0E8', '#FFC8DD', '#B9FBC0', '#FBF8CC',
-            '#FDE4CF', '#FFCFD2', '#F1C0E8', '#CFBAF0', '#A3C4F3',
-            '#90DBF4', '#8EECF5', '#98F5E1', '#B9FBC0', '#E5F993'
+        // --- DATA & CONFIG ---
+        const ringColors = [
+            '#fca5a5', '#fdba74', '#fcd34d', '#fde047', '#fef08a', 
+            '#d9f99d', '#86efac', '#6ee7b7', '#5eead4', '#99f6e4', 
+            '#67e8f9', '#7dd3fc', '#93c5fd', '#a5b4fc', '#c4b5fd', 
+            '#d8b4fe', '#f0abfc', '#f9a8d4', '#fda4af', '#cbd5e1'  
         ];
+
+        const appThemes = [
+            { id: 'white', name: 'White', color: '#ffffff', icon: '' },
+            { id: 'pink_daisy', name: 'Pink Daisy', color: '#fce7f3', icon: '🌸' },
+            { id: 'yellow_sun', name: 'Yellow Sun', color: '#fef08a', icon: '☀️' },
+            { id: 'green_tree', name: 'Green Tree', color: '#dcfce7', icon: '🌳' },
+            { id: 'turquoise_duck', name: 'Turquoise Duck', color: '#ccfbf1', icon: '🦆' },
+            { id: 'blue_fish', name: 'Blue Fish', color: '#dbeafe', icon: '🐟' },
+            { id: 'purple_butterfly', name: 'Purple Butterfly', color: '#f3e8ff', icon: '🦋' },
+            { id: 'green_dino', name: 'Green Dino', color: '#bbf7d0', icon: '🦕' },
+            { id: 'red_racecar', name: 'Red Racecar', color: '#fee2e2', icon: '🏎️' },
+            { id: 'brown_poop', name: 'Brown Poop', color: '#ffedd5', icon: '💩' },
+            { id: 'rainbow_lollipop', name: 'Rainbow Lollipop', color: '#fdf4ff', icon: '🍭' },
+            { id: 'blue_snowflake', name: 'Blue Snowflake', color: '#e0f2fe', icon: '❄️' },
+            { id: 'blue_snowman', name: 'Blue Snowman', color: '#bae6fd', icon: '⛄' },
+            { id: 'orange_jack', name: 'Orange Jack', color: '#ffedd5', icon: '🎃' },
+            { id: 'grey_ghost', name: 'Grey Ghost', color: '#f1f5f9', icon: '👻' },
+            { id: 'green_tree2', name: 'Christmas Tree', color: '#ecfdf5', icon: '🎄' },
+            { id: 'red_santa', name: 'Red Santa', color: '#fecaca', icon: '🎅' }
+        ];
+
+        let counters = JSON.parse(localStorage.getItem('countingApp_data')) || [];
+        let currentView = 'dashboard'; 
+        let tempColor = '';
+        let tempBgColor = '';
+        let tempShowImage = true;
+        let audioCtx = null;
+        let touchStartY = 0;
+        let isSwiping = false;
+        let isCelebrating = false;
+        let isDraining = false;
+        let openSettingsImmediately = false;
+        let sortOption = 'recent'; 
+        let sortAscending = false;
         
-        const defaultBg = 'linear-gradient(to top, var(--tw-gradient-stops))';
-        let currentTempColor = '';
+        let syncCode = localStorage.getItem('countingApp_syncCode') || '';
+        let unsubscribeCounters = null;
 
-        // Initialize App & Sync
-        function initApp() {
-            setTimeout(() => {
-                if (mySyncCode && window.startListeningToCloud) {
-                    window.startListeningToCloud(mySyncCode, (cloudCounters) => {
-                        counters = cloudCounters;
-                        localStorage.setItem("counters", JSON.stringify(counters));
-                        if (activeCounterId === null) {
-                            renderDashboard();
-                        } else {
-                            renderActiveCounter();
-                        }
-                    });
-                }
-            }, 500);
-
-            if (Object.keys(counters).length === 0) createNewCounter();
-            renderDashboard();
+        // Start sync immediately if a code is saved locally
+        if (syncCode.trim()) {
+            setupRealtimeSubscription();
         }
 
-        function saveAndPush() {
-            localStorage.setItem('counters', JSON.stringify(counters));
-            if (mySyncCode && window.pushToCloud) {
-                window.pushToCloud(mySyncCode, counters);
+        // --- CORE FUNCTIONS ---
+        function setupRealtimeSubscription() {
+            if (!db) return;
+            const activeId = syncCode.trim();
+            if (!activeId) return;
+
+            if (unsubscribeCounters) unsubscribeCounters();
+            
+            const docRef = doc(db, 'shared_counters', activeId);
+            unsubscribeCounters = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.counters) {
+                        counters = data.counters;
+                        localStorage.setItem('countingApp_data', JSON.stringify(counters));
+                        renderApp();
+                    }
+                }
+            }, (error) => {
+                console.error("Firebase sync error:", error);
+            });
+        }
+
+        function saveData() {
+            localStorage.setItem('countingApp_data', JSON.stringify(counters));
+            
+            const activeId = syncCode.trim();
+            if (db && activeId) {
+                const docRef = doc(db, 'shared_counters', activeId);
+                setDoc(docRef, { counters: counters, lastUpdated: Date.now() }, { merge: true })
+                    .catch(e => console.error("Save Error (Check Firestore Rules):", e));
             }
         }
 
-        // Dashboard Logic
-        function renderDashboard() {
-            const list = document.getElementById('counterList');
-            const sortMethod = document.getElementById('sortSelect').value;
-            list.innerHTML = '';
-            
-            let arr = Object.entries(counters).map(([id, data]) => ({ id, ...data }));
-            
-            arr.sort((a, b) => {
-                if (sortMethod === 'recent') return (b.lastAccessed || 0) - (a.lastAccessed || 0);
-                if (sortMethod === 'num-desc') return b.count - a.count;
-                if (sortMethod === 'num-asc') return a.count - b.count;
-                if (sortMethod === 'alpha-asc') return a.name.localeCompare(b.name);
-                if (sortMethod === 'alpha-desc') return b.name.localeCompare(a.name);
-                return 0;
-            });
-
-            arr.forEach(c => {
-                const hexColor = c.color || pastelColors[0];
-                // Convert hex to rgb for 25% opacity background
-                let r = parseInt(hexColor.slice(1,3), 16), g = parseInt(hexColor.slice(3,5), 16), b = parseInt(hexColor.slice(5,7), 16);
-                const bgRgba = `rgba(${r},${g},${b},0.25)`;
-
-                const btn = document.createElement('div');
-                btn.className = "flex flex-col items-center gap-3 cursor-pointer group active:scale-95 transition-transform";
-                btn.onclick = () => openCounter(c.id);
-                
-                btn.innerHTML = `
-                    <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full dash-circle flex items-center justify-center shadow-md relative" 
-                         style="border-color: ${hexColor}; background-color: ${bgRgba};">
-                        <span class="text-2xl font-bold text-gray-700">${c.count}</span>
-                    </div>
-                    <span class="font-bold text-gray-600 text-lg w-24 sm:w-28 text-center truncate">${c.name}</span>
-                `;
-                list.appendChild(btn);
-            });
-        }
-
-        function createNewCounter() {
-            const id = Date.now().toString();
-            counters[id] = {
-                name: "New Goal",
+        function createCounterObject() {
+            return {
+                id: Math.random().toString(36).substr(2, 9),
+                name: 'My Counter',
                 count: 0,
                 goal: 100,
-                _nextTarget: 100,
                 step: 1,
-                color: pastelColors[Math.floor(Math.random() * pastelColors.length)],
+                color: '#fca5a5', 
+                themeId: 'white', 
+                showImage: true,
                 lastAccessed: Date.now()
             };
-            saveAndPush();
-            renderDashboard();
         }
 
-        function openCounter(id) {
-            activeCounterId = id;
-            counters[id].lastAccessed = Date.now();
-            saveAndPush();
-            
-            document.getElementById('dashboardView').classList.add('hidden');
-            document.getElementById('counterView').classList.remove('hidden');
-            document.getElementById('counterView').classList.add('flex');
-            
-            renderActiveCounter();
+        window.createNewCounter = function() {
+            const newC = createCounterObject();
+            counters.push(newC);
+            saveData();
+            currentView = newC.id;
+            openSettingsImmediately = true;
+            renderApp();
         }
 
-        function goToDashboard() {
-            activeCounterId = null;
-            document.getElementById('counterView').classList.add('hidden');
-            document.getElementById('counterView').classList.remove('flex');
-            document.getElementById('dashboardView').classList.remove('hidden');
-            renderDashboard();
-        }
+        // --- AUDIO SYSTEM ---
+        function playPopSound(isDecrease = false) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
 
-        // Active Counter Logic
-        function renderActiveCounter() {
-            if (!activeCounterId) return;
-            const c = counters[activeCounterId];
-            
-            // Initialization checks
-            if(c._nextTarget === undefined) c._nextTarget = c.goal;
-            if(c.count === undefined) c.count = 0;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
 
-            document.getElementById('activeTitle').innerText = c.name;
-            
-            const ring = document.getElementById('touchArea');
-            ring.style.borderColor = c.color;
-            
-            const liq = document.getElementById('liquidLayer');
-            liq.style.backgroundColor = c.color;
-            
-            const display = document.getElementById('countDisplay');
-            display.innerText = c.count;
-            
-            // Shrink for 4+ digits
-            if (c.count >= 1000) display.classList.add('shrink');
-            else display.classList.remove('shrink');
-
-            // Calculate fill percentage based on progress toward current target (+100 increment chunks)
-            const previousMilestone = c._nextTarget - c.goal; // Baseline
-            let fillPct = ((c.count - previousMilestone) / c.goal) * 100;
-            if (fillPct > 100) fillPct = 100;
-            if (fillPct < 0) fillPct = 0;
-            
-            if (!isCelebrating) {
-                liq.style.height = `${fillPct}%`;
-            }
-        }
-
-        function increaseCount() {
-            if (isCelebrating) return;
-            
-            const c = counters[activeCounterId];
-            c.count += c.step;
-            playDeepPop();
-            
-            if (c.count >= c._nextTarget) {
-                triggerCelebration(c);
+            osc.type = 'sine';
+            if (isDecrease) {
+                osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.15);
             } else {
-                saveAndPush();
-                renderActiveCounter();
+                osc.frequency.setValueAtTime(250, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.1);
             }
+
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function playCelebrateSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const notes = [261.63, 329.63, 392.00, 523.25]; 
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+                
+                const startTime = audioCtx.currentTime + (i * 0.1);
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.3, startTime + 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 2.8);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(startTime);
+                osc.stop(startTime + 3.0);
+            });
+        }
+
+        // --- RENDERING ---
+        function isDark(hex) {
+            if (hex === '#000000') return true;
+            if (!hex || !hex.startsWith('#')) return false;
+            const r = parseInt(hex.slice(1,3), 16) || 0;
+            const g = parseInt(hex.slice(3,5), 16) || 0;
+            const b = parseInt(hex.slice(5,7), 16) || 0;
+            const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            return luma < 128;
+        }
+
+        function getThemeObj(themeId) {
+            return appThemes.find(t => t.id === themeId) || appThemes[0];
+        }
+
+        function applyThemeBackground(element, themeId, showImage = true) {
+            const theme = getThemeObj(themeId);
+            element.style.backgroundColor = theme.color;
+            if (theme.icon && showImage) {
+                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" opacity="0.15"><text x="50%" y="50%" font-size="60" text-anchor="middle" dominant-baseline="central">${theme.icon}</text></svg>`;
+                element.style.backgroundImage = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+                element.style.backgroundSize = '120px 120px';
+            } else {
+                element.style.backgroundImage = 'none';
+            }
+        }
+
+        function renderApp() {
+            if (currentView === 'dashboard') {
+                renderDashboard();
+            } else {
+                renderFullScreenCounter();
+            }
+        }
+
+        function renderDashboard() {
+            document.body.style.backgroundColor = '#ffffff';
+            document.body.style.backgroundImage = 'none';
+            
+            // Sort the counters based on state
+            let sortedCounters = [...counters].sort((a, b) => {
+                let valA, valB;
+                if (sortOption === 'name') {
+                    valA = (a.name || '').toLowerCase();
+                    valB = (b.name || '').toLowerCase();
+                    if (valA < valB) return sortAscending ? -1 : 1;
+                    if (valA > valB) return sortAscending ? 1 : -1;
+                    return 0;
+                } else if (sortOption === 'count') {
+                    valA = a.count || 0;
+                    valB = b.count || 0;
+                } else {
+                    valA = a.lastAccessed || 0;
+                    valB = b.lastAccessed || 0;
+                }
+                return sortAscending ? valA - valB : valB - valA;
+            });
+
+            let html = `
+                <div class="p-6 sm:p-10 max-w-4xl mx-auto pb-24">
+                    <div class="flex flex-col sm:flex-row justify-end items-center mb-8 gap-4">
+                        
+                        <div class="flex items-center gap-2">
+                            <select id="sortOption" onchange="changeSort(event)" class="bg-white border border-gray-300 text-gray-700 py-2.5 px-4 rounded-xl font-bold shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 cursor-pointer">
+                                <option value="recent" ${sortOption === 'recent' ? 'selected' : ''}>Recently Used</option>
+                                <option value="count" ${sortOption === 'count' ? 'selected' : ''}>Current Count</option>
+                                <option value="name" ${sortOption === 'name' ? 'selected' : ''}>Alphabetical</option>
+                            </select>
+                            <button onclick="toggleSortDirection()" class="bg-white border border-gray-300 text-gray-700 p-2.5 rounded-xl shadow-sm hover:bg-gray-50 active:scale-95 transition-transform" title="Toggle Ascending/Descending">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="${sortAscending ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'}"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-y-8 gap-x-4 sm:gap-x-6">
+            `;
+            
+            sortedCounters.forEach(c => {
+                const theme = getThemeObj(c.themeId || 'white');
+                const showImage = c.showImage !== false;
+                
+                html += `
+                    <div class="flex flex-col items-center gap-3">
+                        <div onclick="openCounter('${c.id}')" 
+                             class="w-full aspect-square rounded-full flex items-center justify-center cursor-pointer transform hover:scale-105 active:scale-95 transition-all relative overflow-hidden"
+                             style="background-color: ${c.color}40; border: 12px solid ${c.color}; box-shadow: 0 12px 25px -5px rgba(0,0,0,0.2), inset 0 0 30px rgba(255,255,255,0.9);">
+                            ${showImage && theme.icon ? `<div class="absolute inset-0 opacity-20 flex items-center justify-center text-6xl pointer-events-none">${theme.icon}</div>` : ''}
+                            <span class="text-3xl sm:text-4xl font-black relative z-10" style="color: ${c.color}; text-shadow: 0 2px 4px rgba(255,255,255,0.8);">${c.count}</span>
+                        </div>
+                        <span class="text-sm font-bold text-gray-900 text-center truncate w-full px-2">${c.name || 'Counter'}</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    <div class="flex flex-col items-center gap-3">
+                        <div onclick="createNewCounter()" 
+                             class="w-full aspect-square rounded-full border-[3px] border-gray-100 flex items-center justify-center cursor-pointer hover:border-gray-200 hover:bg-gray-50 active:scale-95 transition-all bg-white relative"
+                             style="box-shadow: 0 12px 25px -5px rgba(0,0,0,0.08), inset 0 0 20px rgba(0,0,0,0.02);">
+                            <span class="text-5xl sm:text-6xl font-light text-gray-400 mb-1 sm:mb-2">+</span>
+                        </div>
+                        <span class="text-sm font-bold text-gray-500 text-center truncate w-full px-2">Add New</span>
+                    </div>
+                </div>
+            </div>
+            `;
+            
+            document.getElementById('app').innerHTML = html;
+        }
+
+        window.changeSort = function(e) {
+            sortOption = e.target.value;
+            if (sortOption === 'recent') sortAscending = false; 
+            else if (sortOption === 'count') sortAscending = false; 
+            else sortAscending = true; 
+            renderApp();
+        }
+
+        window.toggleSortDirection = function() {
+            sortAscending = !sortAscending;
+            renderApp();
+        }
+
+        window.openCounter = function(id) {
+            currentView = id;
+            openSettingsImmediately = false;
+            
+            const c = counters.find(x => x.id === id);
+            if (c) {
+                c.lastAccessed = Date.now();
+                saveData();
+            }
+            renderApp();
+        }
+
+        function renderFullScreenCounter() {
+            const c = counters.find(x => x.id === currentView);
+            if (!c) {
+                currentView = 'dashboard';
+                return renderApp();
+            }
+
+            const theme = getThemeObj(c.themeId || 'white');
+            const showImage = c.showImage !== false;
+            applyThemeBackground(document.body, theme.id, showImage);
+            const darkBg = isDark(theme.color);
+            const btnClass = darkBg ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-black/10 text-gray-900 hover:bg-black/20';
+
+            // Calculate fill percentage based on the active goal chunk
+            let baseGoal = c.goal - 100;
+            let currentSpan = c.count - baseGoal;
+            if (currentSpan < 0) currentSpan = 0;
+            let progressPct = (currentSpan / 100) * 100;
+            if (progressPct > 100) progressPct = 100;
+            
+            if (isCelebrating) {
+                progressPct = 100;
+            } else if (isDraining) {
+                progressPct = 0;
+            }
+            
+            const liquidTransition = isDraining ? '1.5s' : '0.15s';
+            const stepVal = c.step || 1;
+
+            let html = `
+                <div class="fixed inset-0 flex flex-col items-center justify-center cursor-pointer touch-none" 
+                     onclick="handleTap(event)" 
+                     ontouchstart="handleTouchStart(event)" 
+                     ontouchend="handleTouchEnd(event)">
+                    
+                    <div class="absolute top-6 left-6 z-20 flex items-center gap-4">
+                        <button onclick="goBack(event)" class="${btnClass} p-3 rounded-full backdrop-blur-md transition-colors shadow-sm">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <span class="text-4xl sm:text-5xl tracking-wide px-3 py-1" style="font-family: 'Nunito', sans-serif; font-weight: 800; color: ${darkBg ? 'white' : '#1f2937'}; text-shadow: 0 6px 12px rgba(0,0,0,0.15);">${c.name || 'Counter'}</span>
+                    </div>
+                    
+                    <div class="absolute top-6 right-6 z-20 flex items-center gap-3">
+                        <div class="${btnClass} px-5 py-2.5 rounded-full font-extrabold backdrop-blur-md shadow-sm text-lg pointer-events-none">
+                            Goal: ${c.goal}
+                        </div>
+                        <button onclick="openSettings(event)" class="${btnClass} p-3 rounded-full backdrop-blur-md transition-colors shadow-sm">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="flex flex-col items-center z-10 w-full relative">
+                        <div id="ring-container" class="liquid-container mb-6" style="--ring-color: ${c.color}">
+                            <div class="liquid-fill" style="height: ${progressPct}%; transition: height ${liquidTransition} cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                            <div class="liquid-text ${c.count >= 1000 ? 'shrink' : ''}">${c.count}</div>
+                        </div>
+                        
+                        <button onclick="handleMinus(event)" class="${btnClass} p-3 rounded-xl backdrop-blur-md shadow-md active:scale-95 transition-transform flex items-center justify-center absolute -bottom-24 sm:-bottom-32">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                        </button>
+                    </div>
+
+                </div>
+
+                <div id="settingsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex-col items-center justify-end sm:justify-center p-4">
+                    <div class="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl transform transition-transform" onclick="event.stopPropagation()">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-black text-gray-900">Settings</h2>
+                            <button onclick="closeSettings(event)" class="bg-gray-100 text-gray-600 hover:bg-gray-200 p-2 rounded-full transition-colors">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Ring & Liquid Color</label>
+                                <div class="grid grid-cols-10 gap-2" id="ringColorGrid"></div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Background Theme</label>
+                                <div class="grid grid-cols-5 gap-3" id="bgColorGrid"></div>
+                                
+                                <div class="mt-4 flex items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-200 cursor-pointer" onclick="toggleTempImage()">
+                                    <span class="font-bold text-gray-700">Show Theme Images</span>
+                                    <div class="w-12 h-6 rounded-full transition-colors relative" id="imageToggleBtn">
+                                        <div class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform" id="imageToggleKnob"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="pt-2">
+                                <button onclick="saveSettings()" class="w-full bg-gray-900 text-white rounded-2xl py-4 font-black text-lg shadow-lg active:scale-95 transition-transform">Save Changes</button>
+                            </div>
+                            
+                            <div class="mt-8 pt-8 border-t-4 border-gray-100 space-y-6">
+                                <div class="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Adult Controls</div>
+                                
+                                <div class="w-full">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Counter Name</label>
+                                    <input type="text" id="editName" value="${c.name || 'My Counter'}" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                </div>
+
+                                <div class="flex gap-4">
+                                    <div class="w-1/3">
+                                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Count</label>
+                                        <input type="number" id="editCount" value="${c.count}" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                    </div>
+                                    <div class="w-1/3">
+                                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Goal</label>
+                                        <input type="number" id="editGoal" value="${c.goal}" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                    </div>
+                                    <div class="w-1/3">
+                                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Step</label>
+                                        <input type="number" id="editStep" value="${stepVal}" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                    </div>
+                                </div>
+                                
+                                <div class="pt-4 border-t-2 border-gray-100 mt-4">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Cloud Sync Code</label>
+                                    <p class="text-xs text-gray-400 mb-2 leading-tight">Enter a secret word on all your devices to link them together! (e.g. Apples123)</p>
+                                    <input type="text" id="editSyncCode" value="${syncCode}" placeholder="Secret Code" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                </div>
+                                
+                                <div class="pt-2 space-y-3 mt-4">
+                                    <button onclick="deleteCurrentCounter()" class="w-full bg-red-50 text-red-600 rounded-2xl py-3 font-bold active:scale-95 transition-transform">Delete Counter</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('app').innerHTML = html;
+
+            if (openSettingsImmediately) {
+                openSettings();
+                openSettingsImmediately = false;
+            }
+        }
+
+        window.handleTouchStart = function(e) {
+            if (e.target.closest('button') || e.target.closest('input')) return;
+            touchStartY = e.changedTouches[0].screenY;
+            isSwiping = false;
+        }
+
+        window.handleTouchEnd = function(e) {
+            if (e.target.closest('button') || e.target.closest('input')) return;
+            if (isCelebrating) return;
+            const endY = e.changedTouches[0].screenY;
+            
+            if (endY - touchStartY > 40) {
+                isSwiping = true;
+                decreaseCount();
+            }
+        }
+
+        window.handleMinus = function(e) {
+            if (e) e.stopPropagation();
+            decreaseCount();
         }
 
         function decreaseCount() {
-            if (isCelebrating) return;
-            const c = counters[activeCounterId];
-            if (c.count >= c.step) c.count -= c.step;
-            else c.count = 0;
-            saveAndPush();
-            renderActiveCounter();
+            const c = counters.find(x => x.id === currentView);
+            if (!c) return;
+            
+            c.count -= (c.step || 1);
+            if (c.count < 0) c.count = 0;
+            
+            playPopSound(true);
+            triggerRingAnim();
+            saveData();
+            renderFullScreenCounter();
         }
 
-        // Infinite Milestone Celebration
-        function triggerCelebration(c) {
-            isCelebrating = true;
-            playChime();
+        function triggerRingAnim() {
+            const ring = document.getElementById('ring-container');
+            if (ring) {
+                ring.classList.remove('pulse-anim');
+                void ring.offsetWidth;
+                ring.classList.add('pulse-anim');
+            }
+        }
+
+        window.handleTap = function(e) {
+            if (isSwiping) {
+                isSwiping = false; 
+                return;
+            }
+            if (isCelebrating) return;
             
-            const ring = document.getElementById('touchArea');
-            const liq = document.getElementById('liquidLayer');
+            if (e.target.closest('button') || e.target.closest('input')) return;
             
-            // Trigger Confetti
-            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-            setTimeout(() => confetti({ particleCount: 100, spread: 100, origin: { y: 0.6 } }), 500);
-            
-            // Background Move Animation
-            ring.classList.add('celebrating');
-            liq.style.height = '100%'; // Ensure full before drain
-            
-            // Seamless reset and infinite goal push
-            setTimeout(() => {
-                ring.classList.remove('celebrating');
+            const c = counters.find(x => x.id === currentView);
+            if (!c) return;
+
+            c.count += (c.step || 1);
+            playPopSound(false);
+
+            triggerRingAnim();
+
+            if (c.count >= c.goal) {
+                isCelebrating = true;
+                playCelebrateSound();
                 
-                // Drain animation
-                liq.classList.add('draining');
+                c.goal = c.goal + 100;
+                
+                confetti({
+                    particleCount: 1600,
+                    spread: 180,
+                    startVelocity: 60,
+                    origin: { y: 0.4 },
+                    colors: [c.color, '#ffffff', '#000000', '#facc15', '#f472b6', '#38bdf8']
+                });
                 
                 setTimeout(() => {
-                    liq.classList.remove('draining');
-                    
-                    // Increment infinite target
-                    c._nextTarget += c.goal; 
+                    confetti({
+                        particleCount: 800,
+                        spread: 140,
+                        origin: { y: 0.5 },
+                        colors: [c.color, '#ffffff', '#facc15']
+                    });
+                }, 300);
+
+                document.body.classList.add('celebration-active');
+
+                saveData();
+                renderFullScreenCounter();
+
+                setTimeout(() => {
+                    document.body.classList.remove('celebration-active');
                     isCelebrating = false;
+                    isDraining = true;
                     
-                    saveAndPush();
-                    renderActiveCounter();
-                }, 3000); // Wait for drain to hit 0%
+                    saveData();
+                    renderFullScreenCounter();
+
+                    setTimeout(() => {
+                        isDraining = false;
+                        renderFullScreenCounter();
+                    }, 1500); 
+
+                }, 3000);
                 
-            }, 3000); // Background animation duration
+                return;
+            }
+
+            saveData();
+            renderFullScreenCounter();
         }
 
-        // Touch gestures for minus
-        let startY = 0;
-        document.getElementById('touchArea').addEventListener('touchstart', e => startY = e.touches[0].clientY);
-        document.getElementById('touchArea').addEventListener('touchend', e => {
-            const endY = e.changedTouches[0].clientY;
-            if (endY - startY > 50) decreaseCount(); // Swipe down to minus
-        });
+        window.goBack = function(e) {
+            if(e) e.stopPropagation();
+            currentView = 'dashboard';
+            renderApp();
+        }
 
-        // Settings Logic
-        function openSettings() {
-            if (!activeCounterId) return;
-            const c = counters[activeCounterId];
+        window.openSettings = function(e) {
+            if(e) e.stopPropagation();
+            const c = counters.find(x => x.id === currentView);
+            tempColor = c.color;
+            tempBgColor = c.themeId || 'white';
+            tempShowImage = c.showImage !== false;
             
-            document.getElementById('editName').value = c.name;
-            document.getElementById('editStep').value = c.step;
-            document.getElementById('editGoal').value = c.goal;
-            document.getElementById('editSync').value = mySyncCode;
-            currentTempColor = c.color;
-
-            const colorDiv = document.getElementById('colorPicker');
-            colorDiv.innerHTML = '';
-            pastelColors.forEach(color => {
-                const btn = document.createElement('button');
-                btn.className = `w-10 h-10 rounded-full border-4 ${currentTempColor === color ? 'border-gray-500 scale-110' : 'border-transparent'}`;
-                btn.style.backgroundColor = color;
-                btn.onclick = () => {
-                    currentTempColor = color;
-                    openSettings(); // Refresh selection outline
-                };
-                colorDiv.appendChild(btn);
-            });
-
-            document.getElementById('settingsModal').classList.remove('hidden');
-        }
-
-        function closeSettings() {
-            document.getElementById('settingsModal').classList.add('hidden');
-        }
-
-        function saveSettings() {
-            const c = counters[activeCounterId];
-            c.name = document.getElementById('editName').value || "Counter";
-            c.step = parseInt(document.getElementById('editStep').value) || 1;
+            const modal = document.getElementById('settingsModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
             
+            renderSettingsColors();
+        }
+
+        window.closeSettings = function(e) {
+            if(e) e.stopPropagation();
+            const modal = document.getElementById('settingsModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        window.toggleTempImage = function() {
+            tempShowImage = !tempShowImage;
+            renderSettingsColors();
+        }
+
+        window.tempSetColor = function(color) {
+            tempColor = color;
+            renderSettingsColors();
+        }
+
+        window.tempSetBgColor = function(themeId) {
+            tempBgColor = themeId;
+            renderSettingsColors();
+        }
+
+        function renderSettingsColors() {
+            const toggleBtn = document.getElementById('imageToggleBtn');
+            const toggleKnob = document.getElementById('imageToggleKnob');
+            if (toggleBtn && toggleKnob) {
+                if (tempShowImage) {
+                    toggleBtn.classList.add('bg-blue-500');
+                    toggleBtn.classList.remove('bg-gray-300');
+                    toggleKnob.classList.add('translate-x-6');
+                } else {
+                    toggleBtn.classList.add('bg-gray-300');
+                    toggleBtn.classList.remove('bg-blue-500');
+                    toggleKnob.classList.remove('translate-x-6');
+                }
+            }
+
+            let ringHtml = ringColors.map(color => `
+                <button onclick="tempSetColor('${color}')" 
+                        class="aspect-square rounded-full flex items-center justify-center transition-transform ${tempColor === color ? 'scale-125 ring-2 ring-offset-2 ring-gray-400 z-10 shadow-md' : 'hover:scale-110'}"
+                        style="background-color: ${color};"></button>
+            `).join('');
+            document.getElementById('ringColorGrid').innerHTML = ringHtml;
+
+            let bgHtml = appThemes.map(theme => `
+                <button onclick="tempSetBgColor('${theme.id}')" 
+                        class="h-12 rounded-xl flex items-center justify-center text-2xl transition-transform border border-gray-200 ${tempBgColor === theme.id ? 'scale-105 ring-2 ring-offset-2 ring-gray-400 z-10 shadow-md' : 'hover:scale-95'}"
+                        style="background-color: ${theme.color};" title="${theme.name}">
+                        ${tempShowImage ? theme.icon : ''}
+                </button>
+            `).join('');
+            document.getElementById('bgColorGrid').innerHTML = bgHtml;
+        }
+
+        window.saveSettings = function() {
+            const c = counters.find(x => x.id === currentView);
+            if (!c) return;
+
+            const newName = document.getElementById('editName').value || 'My Counter';
+            const newCount = parseInt(document.getElementById('editCount').value) || 0;
             const newGoal = parseInt(document.getElementById('editGoal').value) || 100;
-            
-            // If goal changed, explicitly reset the tracking to prevent infinite trigger bugs
-            if (c.goal !== newGoal) {
-                c.goal = newGoal;
-                c._nextTarget = (Math.floor(c.count / c.goal) * c.goal) + c.goal;
+            const newStep = parseInt(document.getElementById('editStep').value) || 1;
+            const newSyncCode = (document.getElementById('editSyncCode').value || '').trim();
+
+            c.name = newName;
+            c.count = newCount;
+            c.goal = newGoal;
+            c.step = newStep;
+            c.color = tempColor;
+            c.themeId = tempBgColor;
+            c.showImage = tempShowImage;
+
+            if (newSyncCode !== syncCode) {
+                syncCode = newSyncCode;
+                localStorage.setItem('countingApp_syncCode', syncCode);
+                setupRealtimeSubscription(); // Switch database paths to the new sync code!
             }
-            
-            c.color = currentTempColor;
-            
-            const newSync = document.getElementById('editSync').value.trim();
-            if (newSync !== mySyncCode) {
-                mySyncCode = newSync;
-                localStorage.setItem('syncCode', mySyncCode);
-                // Hard reload to connect to new cloud listener cleanly
-                window.location.reload(); 
-            } else {
-                saveAndPush();
-                renderActiveCounter();
-                closeSettings();
-            }
+
+            saveData();
+            window.closeSettings();
+            renderApp();
         }
 
-        function deleteCounter() {
-            if (confirm("Are you sure you want to delete this counter?")) {
-                delete counters[activeCounterId];
-                saveAndPush();
-                closeSettings();
-                goToDashboard();
-            }
+        window.deleteCurrentCounter = function() {
+            const idToDelete = currentView;
+            currentView = 'dashboard';
+            window.closeSettings();
+            
+            counters = counters.filter(x => x.id !== idToDelete);
+            saveData();
+            renderApp();
         }
 
-        // Boot
-        window.onload = initApp;
+        window.onload = renderApp;
     </script>
 </body>
 </html>
