@@ -19,18 +19,23 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <!-- Inter Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
-    <!-- Rounded Font for Numbers -->
+    <!-- Rounded Font for Numbers & Titles -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
     
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
             /* Disable text selection and highlighting for a native app feel */
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-nunito {
+            font-family: 'Nunito', sans-serif;
         }
 
         /* The Custom Liquid Ring */
@@ -45,6 +50,7 @@
             position: relative;
             overflow: hidden;
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4), inset 0 10px 25px rgba(0,0,0,0.15);
+            transition: border-color 0.2s ease;
         }
         
         /* Gentle White Glow Overlay */
@@ -63,17 +69,6 @@
             box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15), inset 0 0 15px rgba(255,255,255,0.8);
         }
         
-        /* Gentle White Glow Overlay */
-        .liquid-container::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            box-shadow: inset 0 0 60px rgba(255, 255, 255, 0.9);
-            z-index: 5;
-            pointer-events: none;
-        }
-        
         @media (min-width: 640px) {
             .liquid-container {
                 width: 500px;
@@ -90,7 +85,7 @@
             width: 100%;
             background-color: var(--ring-color);
             opacity: 0.85; /* Slight transparency so it looks like liquid */
-            transition: height 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: height 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
             z-index: 1;
             /* Soft liquid shading and glossy top edge (meniscus) */
             box-shadow: inset 0 15px 25px rgba(255, 255, 255, 0.4);
@@ -173,67 +168,83 @@
         };
 
         const firebaseConfig = myFirebaseConfig || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
-        let db;
+        let db = null;
 
         if (firebaseConfig) {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+            } catch (e) {
+                console.error("Firebase init error:", e);
+            }
         }
 
-        // Saturated Pastel Ring Colors
+        // Saturated Pastel Ring Colors (also used for background squares at 20% lighter & 40% more transparent)
         const ringColors = [
-            '#E64836', '#FF4A3D','#FDA649', '#FCCE36', '#FDE55E', // Reds/Oranges/Yellows
+            '#E64836', '#FF4A3D', '#FDA649', '#FCCE36', '#FDE55E', // Reds/Oranges/Yellows
             '#CBF778', '#4FDD45', '#4FA740', '#40DD9F', '#37E6C9', // Greens/Teals
             '#4FE4F8', '#60CAFB', '#61A8FA', '#889BFB', '#B29CFC', // Blues/Purples
             '#CC9BFD', '#F78DC7', '#FB8896', '#B3C2D1', '#A9A9A9'  // Pinks/Grey
         ];
 
-        const appThemes = [
-            { id: 'white', name: 'White', color: '#ffffff', icon: '' },
-            { id: 'pink_daisy', name: 'Pink Daisy', color: '#fce7f3', icon: '🌼' },
-            { id: 'yellow_sun', name: 'Yellow Sun', color: '#fef08a', icon: '☀️' },
-            { id: 'green_tree', name: 'Green Tree', color: '#dcfce7', icon: '🌳' },
-            { id: 'turquoise_duck', name: 'Turquoise Duck', color: '#ccfbf1', icon: '🦆' },
-            { id: 'blue_fish', name: 'Blue Fish', color: '#dbeafe', icon: '🐟' },
-            { id: 'purple_butterfly', name: 'Purple Butterfly', color: '#f3e8ff', icon: '🦋' },
-            { id: 'green_dino', name: 'Green Dino', color: '#bbf7d0', icon: '🦕' },
-            { id: 'red_racecar', name: 'Red Racecar', color: '#fee2e2', icon: '🏎️' },
-            { id: 'brown_poop', name: 'Brown Poop', color: '#ffedd5', icon: '💩' },
-            { id: 'rainbow_lollipop', name: 'Rainbow Lollipop', color: '#fdf4ff', icon: '🍭' },
-            { id: 'blue_snowflake', name: 'Blue Snowflake', color: '#e0f2fe', icon: '❄️' },
-            { id: 'blue_snowman', name: 'Blue Snowman', color: '#bae6fd', icon: '⛄' },
-            { id: 'orange_jack', name: 'Orange Jack', color: '#ffedd5', icon: '🎃' },
-            { id: 'grey_ghost', name: 'Grey Ghost', color: '#f1f5f9', icon: '👻' },
-            { id: 'green_tree2', name: 'Christmas Tree', color: '#ecfdf5', icon: '🎄' },
-            { id: 'red_santa', name: 'Red Santa', color: '#fecaca', icon: '🎅' }
+        // Available Background Emojis (first entry '' represents No Emoji)
+        const bgEmojis = [
+            '', '🌼', '☀️', '🌳', '🦆',
+            '🐟', '🦋', '🦕', '🏎️', '⚽',
+            '💩', '🍭', '🍿', '🍕', '🎃',
+            '👻', '🎄', '🎅', '❄️', '⛄'
         ];
+
+        // Legacy theme lookup for backwards compatibility with older saved counters
+        const legacyThemes = {
+            white: { color: '#ffffff', icon: '' },
+            pink_daisy: { color: '#F78DC7', icon: '🌼' },
+            yellow_sun: { color: '#FDE55E', icon: '☀️' },
+            green_tree: { color: '#4FDD45', icon: '🌳' },
+            turquoise_duck: { color: '#37E6C9', icon: '🦆' },
+            blue_fish: { color: '#60CAFB', icon: '🐟' },
+            purple_butterfly: { color: '#B29CFC', icon: '🦋' },
+            green_dino: { color: '#CBF778', icon: '🦕' },
+            red_racecar: { color: '#FF4A3D', icon: '🏎️' },
+            brown_poop: { color: '#FDA649', icon: '💩' },
+            rainbow_lollipop: { color: '#CC9BFD', icon: '🍭' },
+            blue_snowflake: { color: '#4FE4F8', icon: '❄️' },
+            blue_snowman: { color: '#61A8FA', icon: '⛄' },
+            orange_jack: { color: '#FDA649', icon: '🎃' },
+            grey_ghost: { color: '#B3C2D1', icon: '👻' },
+            green_tree2: { color: '#4FA740', icon: '🎄' },
+            red_santa: { color: '#E64836', icon: '🎅' }
+        };
 
         // Custom Pixabay Audio Objects
         const popAudio = new Audio("https://cdn.pixabay.com/download/audio/2026/03/15/audio_82c2b79a54.mp3?filename=pop-423717.mp3");
         const fanfareAudio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_c89c836965.mp3?filename=fanfare-46385.mp3");
 
-        // Preload sounds
         popAudio.load();
         fanfareAudio.load();
 
-        // State variables
+        // App State
         let counters = [];
         let currentView = 'dashboard'; 
-        let tempColor = '';
-        let tempBgColor = '';
-        let tempShowImage = true;
         let audioCtx = null;
         let touchStartY = 0;
         let isSwiping = false;
         let isCelebrating = false;
         let isDraining = false;
         let openSettingsImmediately = false;
+        let isSettingsOpen = false;
         let sortOption = 'recent'; 
         let sortAscending = false;
         let syncCode = localStorage.getItem('countingApp_syncCode') || '';
         let unsubscribeCounters = null;
+        let syncDebounceTimer = null;
 
-        counters = JSON.parse(localStorage.getItem('countingApp_data')) || [];
+        try {
+            const savedData = JSON.parse(localStorage.getItem('countingApp_data'));
+            counters = Array.isArray(savedData) ? savedData : [];
+        } catch (e) {
+            counters = [];
+        }
         
         if (db) {
             setupRealtimeSubscription();
@@ -247,23 +258,36 @@
             const countersRef = collection(db, 'artifacts', appId, 'users', activeId, 'counters');
             
             unsubscribeCounters = onSnapshot(query(countersRef), (snapshot) => {
-                counters = [];
-                snapshot.forEach((doc) => {
-                    counters.push({ id: doc.id, ...doc.data() });
+                const incoming = [];
+                snapshot.forEach((docSnap) => {
+                    incoming.push({ id: docSnap.id, ...docSnap.data() });
                 });
-                renderApp();
+                if (incoming.length > 0 || syncCode.trim() !== '') {
+                    counters = incoming;
+                    localStorage.setItem('countingApp_data', JSON.stringify(counters));
+                }
+                if (isSettingsOpen) {
+                    updateLiveCounterView();
+                    renderSettingsOptions();
+                } else {
+                    renderApp();
+                }
             }, (error) => {
                 console.error("Firebase sync error:", error);
             });
         }
 
         function saveData() {
-            localStorage.setItem('countingApp_data', JSON.stringify(counters));
+            try {
+                localStorage.setItem('countingApp_data', JSON.stringify(counters));
+            } catch (e) {
+                console.error("Local save error:", e);
+            }
             if (db) {
                 const activeId = syncCode.trim() || 'default_local_user';
                 counters.forEach(c => {
                     const cRef = doc(db, 'artifacts', appId, 'users', activeId, 'counters', c.id);
-                    setDoc(cRef, c).catch(e => console.error("Save error:", e));
+                    setDoc(cRef, c).catch(e => console.error("Cloud save error:", e));
                 });
             }
         }
@@ -275,9 +299,9 @@
                 count: 0,
                 goal: 100,
                 step: 1,
-                color: '#ff7675',
-                themeId: 'white',
-                showImage: true,
+                color: '#FF4A3D',    // Default red ring color
+                bgColor: '#ffffff',  // Default white background
+                bgEmoji: '',         // Default no emoji
                 lastAccessed: Date.now()
             };
         }
@@ -290,13 +314,12 @@
             currentView = newC.id;
             openSettingsImmediately = true;
             renderApp();
-        }
+        };
 
-        // Audio Triggers with robust Web Audio Synth Fallback
+        // Audio Triggers with Web Audio Synth Fallback
         function playPopSound(isDecrease = false) {
             popAudio.currentTime = 0;
             popAudio.play().catch(() => {
-                // Fallback synth pop sound
                 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const osc = audioCtx.createOscillator();
@@ -316,7 +339,6 @@
         function playCelebrateSound() {
             fanfareAudio.currentTime = 0;
             fanfareAudio.play().catch(() => {
-                // Fallback synth fanfare chord
                 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const notes = [261.63, 329.63, 392.00, 523.25]; 
@@ -337,25 +359,61 @@
             });
         }
 
-        function isDark(hex) {
-            if (hex === '#000000') return true;
-            if (!hex || !hex.startsWith('#')) return false;
-            const r = parseInt(hex.slice(1,3), 16) || 0;
-            const g = parseInt(hex.slice(3,5), 16) || 0;
-            const b = parseInt(hex.slice(5,7), 16) || 0;
+        // Convert hex color to a 20% lighter RGBA string at 0.48 alpha (40% more transparent than 0.8)
+        function getLightenedBgRgba(hex, lightenPct = 0.2, alpha = 0.48) {
+            if (!hex || !hex.startsWith('#') || hex.toLowerCase() === '#ffffff') {
+                return '#ffffff';
+            }
+            const rawR = parseInt(hex.slice(1, 3), 16) || 0;
+            const rawG = parseInt(hex.slice(3, 5), 16) || 0;
+            const rawB = parseInt(hex.slice(5, 7), 16) || 0;
+
+            const r = Math.round(rawR + (255 - rawR) * lightenPct);
+            const g = Math.round(rawG + (255 - rawG) * lightenPct);
+            const b = Math.round(rawB + (255 - rawB) * lightenPct);
+
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // Resolve counter background color (supporting both new bgColor and legacy themeId)
+        function getCounterBgColor(c) {
+            if (c.bgColor !== undefined) return c.bgColor;
+            if (c.themeId && legacyThemes[c.themeId]) return legacyThemes[c.themeId].color;
+            return '#ffffff';
+        }
+
+        // Resolve counter background emoji (supporting both new bgEmoji and legacy themeId/showImage)
+        function getCounterBgEmoji(c) {
+            if (c.bgEmoji !== undefined) return c.bgEmoji;
+            if (c.themeId && legacyThemes[c.themeId]) {
+                return c.showImage === false ? '' : legacyThemes[c.themeId].icon;
+            }
+            return '';
+        }
+
+        // Evaluate perceived darkness when the 20% lighter, 48% opaque color is layered over white
+        function isDarkBackground(hex) {
+            if (!hex || !hex.startsWith('#') || hex.toLowerCase() === '#ffffff') return false;
+            const lightR = (parseInt(hex.slice(1, 3), 16) || 0) * 0.8 + 255 * 0.2;
+            const lightG = (parseInt(hex.slice(3, 5), 16) || 0) * 0.8 + 255 * 0.2;
+            const lightB = (parseInt(hex.slice(5, 7), 16) || 0) * 0.8 + 255 * 0.2;
+
+            const r = lightR * 0.48 + 255 * 0.52;
+            const g = lightG * 0.48 + 255 * 0.52;
+            const b = lightB * 0.48 + 255 * 0.52;
             const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
             return luma < 128;
         }
 
-        function getThemeObj(themeId) {
-            return appThemes.find(t => t.id === themeId) || appThemes[0];
-        }
+        // Apply selected background color (20% lighter and 40% more transparent) and background emoji
+        function applyCounterBackground(element, c) {
+            const bgColor = getCounterBgColor(c);
+            const bgEmoji = getCounterBgEmoji(c);
 
-        function applyThemeBackground(element, themeId, showImage = true) {
-            const theme = getThemeObj(themeId);
-            element.style.backgroundColor = theme.color;
-            if (theme.icon && showImage) {
-                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" opacity="0.15"><text x="50%" y="50%" font-size="60" text-anchor="middle" dominant-baseline="central">${theme.icon}</text></svg>`;
+            element.style.backgroundColor = getLightenedBgRgba(bgColor, 0.2, 0.48);
+
+            if (bgEmoji) {
+                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" opacity="0.18"><text x="50%" y="50%" font-size="60" text-anchor="middle" dominant-baseline="central">${bgEmoji}</text></svg>`;
                 element.style.backgroundImage = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
                 element.style.backgroundSize = '120px 120px';
             } else {
@@ -365,6 +423,7 @@
 
         function renderApp() {
             if (currentView === 'dashboard') {
+                isSettingsOpen = false;
                 renderDashboard();
             } else {
                 renderFullScreenCounter();
@@ -375,7 +434,7 @@
             document.body.style.backgroundColor = '#ffffff';
             document.body.style.backgroundImage = 'none';
             
-            let sortedCounters = [...counters].sort((a, b) => {
+            const sortedCounters = [...counters].sort((a, b) => {
                 let valA, valB;
                 if (sortOption === 'name') {
                     valA = (a.name || '').toLowerCase();
@@ -414,15 +473,14 @@
             `;
             
             sortedCounters.forEach(c => {
-                const theme = getThemeObj(c.themeId || 'white');
-                const showImage = c.showImage !== false;
+                const bgEmoji = getCounterBgEmoji(c);
                 
                 html += `
                     <div class="flex flex-col items-center gap-3">
                         <div onclick="openCounter('${c.id}')" 
                              class="w-full aspect-square rounded-full dash-circle flex items-center justify-center cursor-pointer transform hover:scale-105 active:scale-95 transition-all relative overflow-hidden"
                              style="background-color: ${c.color}40; border: 12px solid ${c.color}">
-                            ${showImage && theme.icon ? `<div class="absolute inset-0 opacity-20 flex items-center justify-center text-6xl pointer-events-none">${theme.icon}</div>` : ''}
+                            ${bgEmoji ? `<div class="absolute inset-0 opacity-20 flex items-center justify-center text-6xl pointer-events-none">${bgEmoji}</div>` : ''}
                             <span class="text-3xl sm:text-4xl font-black relative z-10" style="color: ${c.color}">${c.count}</span>
                         </div>
                         <span class="text-sm font-bold text-gray-800 text-center truncate w-full px-2">${c.name || 'Counter'}</span>
@@ -451,16 +509,17 @@
             else if (sortOption === 'count') sortAscending = false; 
             else sortAscending = true; 
             renderApp();
-        }
+        };
 
         window.toggleSortDirection = function() {
             sortAscending = !sortAscending;
             renderApp();
-        }
+        };
 
         window.openCounter = function(id) {
             currentView = id;
             openSettingsImmediately = false;
+            isSettingsOpen = false;
             
             const c = counters.find(x => x.id === id);
             if (c) {
@@ -469,6 +528,56 @@
             }
             
             renderApp();
+        };
+
+        function calculateProgressPct(c) {
+            const baseGoal = c.goal - 100;
+            let currentSpan = c.count - baseGoal;
+            if (currentSpan < 0) currentSpan = 0;
+            let progressPct = (currentSpan / 100) * 100;
+            if (progressPct > 100) progressPct = 100;
+            
+            if (isCelebrating) return 100;
+            if (isDraining) return 0;
+            return progressPct;
+        }
+
+        // Updates the live counter view behind the settings modal without losing input focus
+        function updateLiveCounterView() {
+            const c = counters.find(x => x.id === currentView);
+            if (!c) return;
+
+            const bgColor = getCounterBgColor(c);
+            applyCounterBackground(document.body, c);
+            const darkBg = isDarkBackground(bgColor);
+
+            const titleEl = document.getElementById('liveCounterTitle');
+            if (titleEl) {
+                titleEl.textContent = c.name || 'Counter';
+                titleEl.style.color = darkBg ? 'white' : '#111827';
+            }
+
+            const goalEl = document.getElementById('liveGoalPill');
+            if (goalEl) {
+                goalEl.textContent = `Goal: ${c.goal}`;
+            }
+
+            const ringEl = document.getElementById('ring-container');
+            if (ringEl) {
+                ringEl.style.setProperty('--ring-color', c.color);
+            }
+
+            const liquidEl = document.getElementById('liveLiquidFill');
+            if (liquidEl) {
+                liquidEl.style.height = `${calculateProgressPct(c)}%`;
+            }
+
+            const countEl = document.getElementById('liveCountText');
+            if (countEl) {
+                countEl.textContent = c.count;
+                if (c.count >= 1000) countEl.classList.add('shrink');
+                else countEl.classList.remove('shrink');
+            }
         }
 
         function renderFullScreenCounter() {
@@ -478,28 +587,16 @@
                 return renderApp();
             }
 
-            const theme = getThemeObj(c.themeId || 'white');
-            const showImage = c.showImage !== false;
-            applyThemeBackground(document.body, theme.id, showImage);
-            const darkBg = isDark(theme.color);
+            const bgColor = getCounterBgColor(c);
+            applyCounterBackground(document.body, c);
+            const darkBg = isDarkBackground(bgColor);
             const btnClass = darkBg ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-black/10 text-gray-900 hover:bg-black/20';
 
-            let baseGoal = c.goal - 100;
-            let currentSpan = c.count - baseGoal;
-            if (currentSpan < 0) currentSpan = 0;
-            let progressPct = (currentSpan / 100) * 100;
-            if (progressPct > 100) progressPct = 100;
-            
-            if (isCelebrating) {
-                progressPct = 100;
-            } else if (isDraining) {
-                progressPct = 0;
-            }
-            
+            const progressPct = calculateProgressPct(c);
             const liquidTransition = isDraining ? '1.5s' : '0.15s';
             const stepVal = c.step || 1;
 
-            let html = `
+            const html = `
                 <div class="fixed inset-0 flex flex-col items-center justify-center cursor-pointer touch-none" 
                      onclick="handleTap(event)" 
                      ontouchstart="handleTouchStart(event)" 
@@ -509,11 +606,11 @@
                         <button onclick="goBack(event)" class="${btnClass} p-3 rounded-full backdrop-blur-md transition-colors shadow-sm">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
                         </button>
-                        <span class="font-nunito font-bold text-4xl sm:text-5xl tracking-tight px-3 py-1" style="color: ${darkBg ? 'white' : '#111827'}; text-shadow: 0 4px 12px rgba(0,0,0,0.15);">${c.name || 'Counter'}</span>
+                        <span id="liveCounterTitle" class="font-nunito font-bold text-4xl sm:text-5xl tracking-tight px-3 py-1" style="color: ${darkBg ? 'white' : '#111827'}; text-shadow: 0 4px 12px rgba(0,0,0,0.15);">${c.name || 'Counter'}</span>
                     </div>
                     
                     <div class="absolute top-6 right-6 z-20 flex items-center gap-3">
-                        <div class="${btnClass} px-5 py-2.5 rounded-full font-extrabold backdrop-blur-md shadow-sm text-lg pointer-events-none">
+                        <div id="liveGoalPill" class="${btnClass} px-5 py-2.5 rounded-full font-extrabold backdrop-blur-md shadow-sm text-lg pointer-events-none">
                             Goal: ${c.goal}
                         </div>
                         <button onclick="openSettings(event)" class="${btnClass} p-3 rounded-full backdrop-blur-md transition-colors shadow-sm">
@@ -523,8 +620,8 @@
 
                     <div class="flex flex-col items-center z-10 w-full relative">
                         <div id="ring-container" class="liquid-container mb-6" style="--ring-color: ${c.color}">
-                            <div class="liquid-fill" style="height: ${progressPct}%; transition: height ${liquidTransition} cubic-bezier(0.4, 0, 0.2, 1);"></div>
-                            <div class="liquid-text ${c.count >= 1000 ? 'shrink' : ''}">${c.count}</div>
+                            <div id="liveLiquidFill" class="liquid-fill" style="height: ${progressPct}%; transition: height ${liquidTransition} cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                            <div id="liveCountText" class="liquid-text ${c.count >= 1000 ? 'shrink' : ''}">${c.count}</div>
                         </div>
                         
                         <button onclick="handleMinus(event)" class="${btnClass} p-3 rounded-xl backdrop-blur-md shadow-md active:scale-95 transition-transform flex items-center justify-center absolute -bottom-24 sm:-bottom-32">
@@ -534,8 +631,9 @@
 
                 </div>
 
-                <div id="settingsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex-col items-center justify-end sm:justify-center p-4">
-                    <div class="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl transform transition-transform" onclick="event.stopPropagation()">
+                <!-- Settings Modal (Changes apply and save immediately) -->
+                <div id="settingsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex-col items-center justify-end sm:justify-center p-4">
+                    <div class="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl transform transition-transform" onclick="event.stopPropagation()">
                         <div class="flex justify-between items-center mb-6">
                             <h2 class="text-2xl font-black text-gray-900">Settings</h2>
                             <button onclick="closeSettings(event)" class="bg-gray-100 text-gray-600 hover:bg-gray-200 p-2 rounded-full transition-colors">
@@ -544,54 +642,55 @@
                         </div>
                         
                         <div class="space-y-6">
+                            <!-- Ring & Liquid Color Grid -->
                             <div>
                                 <label class="block text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Ring & Liquid Color</label>
                                 <div class="grid grid-cols-10 gap-2" id="ringColorGrid"></div>
                             </div>
 
-                            <div>
-                                <label class="block text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Background Theme</label>
-                                <div class="grid grid-cols-5 gap-3" id="bgColorGrid"></div>
-                                
-                                <div class="mt-4 flex items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-200 cursor-pointer" onclick="toggleTempImage()">
-                                    <span class="font-bold text-gray-700">Show Theme Images</span>
-                                    <div class="w-12 h-6 rounded-full transition-colors relative" id="imageToggleBtn">
-                                        <div class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform" id="imageToggleKnob"></div>
-                                    </div>
+                            <!-- Side-by-Side Columns: Background Emojis (Left) & Background Colors (Right) -->
+                            <div class="grid grid-cols-2 gap-4 items-start">
+                                <!-- Left Column: Background Emoji Grid (No background color behind emojis) -->
+                                <div>
+                                    <label class="block text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Background Emoji</label>
+                                    <div class="grid grid-cols-4 gap-1.5" id="bgEmojiGrid"></div>
+                                </div>
+
+                                <!-- Right Column: Background Color Grid (20% lighter & 40% more transparent squares) -->
+                                <div>
+                                    <label class="block text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Background Color</label>
+                                    <div class="grid grid-cols-4 gap-1.5" id="bgColorGrid"></div>
                                 </div>
                             </div>
                             
-                            <div class="pt-2">
-                                <button onclick="saveSettings()" class="w-full bg-gray-900 text-white rounded-2xl py-4 font-black text-lg shadow-lg active:scale-95 transition-transform">Save Changes</button>
-                            </div>
-                            
+                            <!-- Adult Controls Section -->
                             <div class="mt-8 pt-8 border-t-4 border-gray-100 space-y-6">
                                 <div class="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Adult Controls</div>
                                 
                                 <div class="w-full">
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Counter Name</label>
-                                    <input type="text" id="editName" value="${c.name || 'My Counter'}" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                    <input type="text" id="editName" value="${c.name || 'My Counter'}" oninput="handleSettingInput('name', this.value)" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
                                 </div>
 
                                 <div class="flex gap-4">
                                     <div class="w-1/3">
                                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Count</label>
-                                        <input type="number" id="editCount" value="${c.count}" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                        <input type="number" id="editCount" value="${c.count}" oninput="handleSettingInput('count', this.value)" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
                                     </div>
                                     <div class="w-1/3">
                                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Goal</label>
-                                        <input type="number" id="editGoal" value="${c.goal}" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                        <input type="number" id="editGoal" value="${c.goal}" oninput="handleSettingInput('goal', this.value)" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
                                     </div>
                                     <div class="w-1/3">
                                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Step</label>
-                                        <input type="number" id="editStep" value="${stepVal}" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                        <input type="number" id="editStep" value="${stepVal}" oninput="handleSettingInput('step', this.value)" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
                                     </div>
                                 </div>
                                 
                                 <div class="pt-4 border-t-2 border-gray-100 mt-4">
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Cloud Sync Code</label>
                                     <p class="text-xs text-gray-400 mb-2 leading-tight">Enter a secret word on all your devices to link them together! (e.g. Apples123)</p>
-                                    <input type="text" id="editSyncCode" value="${syncCode}" placeholder="Secret Code" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
+                                    <input type="text" id="editSyncCode" value="${syncCode}" oninput="handleSyncCodeInput(this.value)" placeholder="Secret Code" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-lg font-bold text-gray-900 focus:ring-4 focus:ring-blue-100 outline-none">
                                 </div>
                                 
                                 <div class="pt-2 space-y-3 mt-4">
@@ -615,7 +714,7 @@
             if (e.target.closest('button') || e.target.closest('input')) return;
             touchStartY = e.changedTouches[0].screenY;
             isSwiping = false;
-        }
+        };
 
         window.handleTouchEnd = function(e) {
             if (e.target.closest('button') || e.target.closest('input')) return;
@@ -626,12 +725,12 @@
                 isSwiping = true;
                 decreaseCount();
             }
-        }
+        };
 
         window.handleMinus = function(e) {
             if (e) e.stopPropagation();
             decreaseCount();
-        }
+        };
 
         function decreaseCount() {
             const c = counters.find(x => x.id === currentView);
@@ -720,117 +819,162 @@
 
             saveData();
             renderFullScreenCounter();
-        }
+        };
 
         window.goBack = function(e) {
-            if(e) e.stopPropagation();
+            if (e) e.stopPropagation();
+            isSettingsOpen = false;
             currentView = 'dashboard';
             renderApp();
-        }
+        };
 
         window.openSettings = function(e) {
-            if(e) e.stopPropagation();
-            const c = counters.find(x => x.id === currentView);
-            tempColor = c.color;
-            tempBgColor = c.themeId || 'white';
-            tempShowImage = c.showImage !== false;
+            if (e) e.stopPropagation();
+            isSettingsOpen = true;
             
             const modal = document.getElementById('settingsModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
             
-            renderSettingsColors();
-        }
+            renderSettingsOptions();
+        };
 
         window.closeSettings = function(e) {
-            if(e) e.stopPropagation();
+            if (e) e.stopPropagation();
+            isSettingsOpen = false;
+            
             const modal = document.getElementById('settingsModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-
-        window.toggleTempImage = function() {
-            tempShowImage = !tempShowImage;
-            renderSettingsColors();
-        }
-
-        window.tempSetColor = function(color) {
-            tempColor = color;
-            renderSettingsColors();
-        }
-
-        window.tempSetBgColor = function(themeId) {
-            tempBgColor = themeId;
-            renderSettingsColors();
-        }
-
-        function renderSettingsColors() {
-            const toggleBtn = document.getElementById('imageToggleBtn');
-            const toggleKnob = document.getElementById('imageToggleKnob');
-            if (toggleBtn && toggleKnob) {
-                if (tempShowImage) {
-                    toggleBtn.classList.add('bg-blue-500');
-                    toggleBtn.classList.remove('bg-gray-300');
-                    toggleKnob.classList.add('translate-x-6');
-                } else {
-                    toggleBtn.classList.add('bg-gray-300');
-                    toggleBtn.classList.remove('bg-blue-500');
-                    toggleKnob.classList.remove('translate-x-6');
-                }
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
             }
+            renderFullScreenCounter();
+        };
 
-            let ringHtml = ringColors.map(color => `
-                <button onclick="tempSetColor('${color}')" 
-                        class="aspect-square rounded-full flex items-center justify-center transition-transform ${tempColor === color ? 'scale-125 ring-2 ring-offset-2 ring-gray-400 z-10 shadow-md' : 'hover:scale-110'}"
-                        style="background-color: ${color};"></button>
-            `).join('');
-            document.getElementById('ringColorGrid').innerHTML = ringHtml;
+        // Immediate auto-save handlers for Ring Color, Background Emoji, and Background Color
+        window.selectRingColor = function(color) {
+            const c = counters.find(x => x.id === currentView);
+            if (!c) return;
+            c.color = color;
+            saveData();
+            updateLiveCounterView();
+            renderSettingsOptions();
+        };
 
-            let bgHtml = appThemes.map(theme => `
-                <button onclick="tempSetBgColor('${theme.id}')" 
-                        class="h-12 rounded-xl flex items-center justify-center text-2xl transition-transform border border-gray-200 ${tempBgColor === theme.id ? 'scale-105 ring-2 ring-offset-2 ring-gray-400 z-10 shadow-md' : 'hover:scale-95'}"
-                        style="background-color: ${theme.color};" title="${theme.name}">
-                        ${tempShowImage ? theme.icon : ''}
-                </button>
-            `).join('');
-            document.getElementById('bgColorGrid').innerHTML = bgHtml;
-        }
+        window.selectBgEmoji = function(emoji) {
+            const c = counters.find(x => x.id === currentView);
+            if (!c) return;
+            c.bgEmoji = emoji;
+            delete c.themeId;
+            delete c.showImage;
+            saveData();
+            updateLiveCounterView();
+            renderSettingsOptions();
+        };
 
-        window.saveSettings = function() {
+        window.selectBgColor = function(color) {
+            const c = counters.find(x => x.id === currentView);
+            if (!c) return;
+            c.bgColor = color;
+            delete c.themeId;
+            saveData();
+            updateLiveCounterView();
+            renderSettingsOptions();
+        };
+
+        // Immediate auto-save handler for Adult Control inputs
+        window.handleSettingInput = function(field, value) {
             const c = counters.find(x => x.id === currentView);
             if (!c) return;
 
-            const newName = document.getElementById('editName').value || 'My Counter';
-            const newCount = parseInt(document.getElementById('editCount').value) || 0;
-            const newGoal = parseInt(document.getElementById('editGoal').value) || 100;
-            const newStep = parseInt(document.getElementById('editStep').value) || 1;
-            const newSyncCode = (document.getElementById('editSyncCode').value || '').trim();
-
-            c.name = newName;
-            c.count = newCount;
-            c.goal = newGoal;
-            c.step = newStep;
-            c.color = tempColor;
-            c.themeId = tempBgColor;
-            c.showImage = tempShowImage;
-
-            if (newSyncCode !== syncCode) {
-                syncCode = newSyncCode;
-                localStorage.setItem('countingApp_syncCode', syncCode);
-                if (db) {
-                    setupRealtimeSubscription();
-                }
+            if (field === 'name') {
+                c.name = value.trim() || 'My Counter';
+            } else if (field === 'count') {
+                const parsed = parseInt(value, 10);
+                c.count = isNaN(parsed) ? 0 : parsed;
+            } else if (field === 'goal') {
+                const parsed = parseInt(value, 10);
+                c.goal = isNaN(parsed) || parsed <= 0 ? 100 : parsed;
+            } else if (field === 'step') {
+                const parsed = parseInt(value, 10);
+                c.step = isNaN(parsed) || parsed <= 0 ? 1 : parsed;
             }
 
             saveData();
-            window.closeSettings();
-            renderApp();
+            updateLiveCounterView();
+        };
+
+        // Immediate auto-save handler for Cloud Sync Code
+        window.handleSyncCodeInput = function(value) {
+            const trimmed = (value || '').trim();
+            if (trimmed === syncCode) return;
+
+            syncCode = trimmed;
+            localStorage.setItem('countingApp_syncCode', syncCode);
+
+            if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+            syncDebounceTimer = setTimeout(() => {
+                saveData();
+                if (db) {
+                    setupRealtimeSubscription();
+                }
+            }, 400);
+        };
+
+        function renderSettingsOptions() {
+            const c = counters.find(x => x.id === currentView);
+            if (!c) return;
+
+            const activeBgColor = getCounterBgColor(c);
+            const activeBgEmoji = getCounterBgEmoji(c);
+
+            // 1. Ring & Liquid Color Grid
+            const ringGridEl = document.getElementById('ringColorGrid');
+            if (ringGridEl) {
+                ringGridEl.innerHTML = ringColors.map(color => `
+                    <button onclick="selectRingColor('${color}')" 
+                            class="aspect-square rounded-full flex items-center justify-center transition-transform ${c.color === color ? 'scale-125 ring-2 ring-offset-2 ring-gray-400 z-10 shadow-md' : 'hover:scale-110'}"
+                            style="background-color: ${color};"></button>
+                `).join('');
+            }
+
+            // 2. Background Emoji Grid (Left Column - No background color behind emojis)
+            const emojiGridEl = document.getElementById('bgEmojiGrid');
+            if (emojiGridEl) {
+                emojiGridEl.innerHTML = bgEmojis.map(emoji => {
+                    const isSelected = activeBgEmoji === emoji;
+                    return `
+                        <button onclick="selectBgEmoji('${emoji}')" 
+                                class="aspect-square rounded-xl flex items-center justify-center text-xl sm:text-2xl transition-transform bg-transparent ${isSelected ? 'scale-110 ring-2 ring-gray-800' : 'hover:scale-105 opacity-80 hover:opacity-100'}"
+                                title="${emoji ? emoji : 'No Emoji'}">
+                            ${emoji || '<svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>'}
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            // 3. Background Color Grid (Right Column - Squares, 20% lighter & 40% more transparent, excluding light grey)
+            const bgColorGridEl = document.getElementById('bgColorGrid');
+            if (bgColorGridEl) {
+                const bgPalette = ['#ffffff', ...ringColors.filter(color => color !== '#B3C2D1')];
+                bgColorGridEl.innerHTML = bgPalette.map(color => {
+                    const isSelected = activeBgColor.toLowerCase() === color.toLowerCase();
+                    const displayColor = color === '#ffffff' ? '#ffffff' : getLightenedBgRgba(color, 0.2, 0.48);
+                    return `
+                        <button onclick="selectBgColor('${color}')" 
+                                class="aspect-square rounded-lg transition-transform border ${color === '#ffffff' ? 'border-gray-300' : 'border-black/10'} ${isSelected ? 'scale-110 ring-2 ring-offset-2 ring-gray-600 z-10 shadow-md' : 'hover:scale-105'}"
+                                style="background-color: ${displayColor};"></button>
+                    `;
+                }).join('');
+            }
         }
 
         window.deleteCurrentCounter = function() {
             const idToDelete = currentView;
+            isSettingsOpen = false;
             currentView = 'dashboard';
-            window.closeSettings();
             
             counters = counters.filter(x => x.id !== idToDelete);
             saveData();
@@ -840,10 +984,15 @@
                 const activeId = syncCode.trim() || 'default_local_user';
                 deleteDoc(doc(db, 'artifacts', appId, 'users', activeId, 'counters', idToDelete)).catch(console.error);
             }
+        };
+
+        // Boot immediately on DOM ready or window load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', renderApp);
+        } else {
+            renderApp();
         }
-
         window.onload = renderApp;
-
     </script>
 </body>
 </html>
